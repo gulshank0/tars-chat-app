@@ -22,6 +22,14 @@ export function ChatArea({ conversationId, currentUser, onBack }: ChatAreaProps)
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const prevMessagesLength = useRef(0);
 
+  // Refresh `now` every 2 s so the typing-indicator query re-evaluates and
+  // expired indicators disappear automatically on the client.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(id);
+  }, []);
+
   // Queries
   const conversation = useQuery(api.conversations.getConversation, {
     conversationId,
@@ -30,6 +38,7 @@ export function ChatArea({ conversationId, currentUser, onBack }: ChatAreaProps)
   const typingUsers = useQuery(api.messages.getTypingIndicator, {
     conversationId,
     currentUserId: currentUser._id,
+    now,
   });
   const markAsRead = useMutation(api.messages.markAsRead);
 

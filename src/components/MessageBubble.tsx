@@ -47,7 +47,7 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
   const addReaction = useMutation(api.messages.addReaction);
 
   const handleDelete = async () => {
-    await deleteMessage({ messageId: message._id });
+    await deleteMessage({ messageId: message._id, userId: currentUserId });
     setShowActions(false);
   };
 

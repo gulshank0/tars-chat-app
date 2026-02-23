@@ -57,21 +57,23 @@ export const getAllUsers = query({
   },
 });
 
-// Search users by name
+// Search users by name (uses Convex search index for performance)
 export const searchUsers = query({
   args: { 
     searchQuery: v.string(),
     currentClerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    const allUsers = await ctx.db.query("users").collect();
-    const searchLower = args.searchQuery.toLowerCase();
-    
-    return allUsers.filter(
-      (user) => 
-        user.clerkId !== args.currentClerkId &&
-        user.name.toLowerCase().includes(searchLower)
-    );
+    if (!args.searchQuery.trim()) return [];
+
+    const results = await ctx.db
+      .query("users")
+      .withSearchIndex("search_name", (q) =>
+        q.search("name", args.searchQuery)
+      )
+      .collect();
+
+    return results.filter((user) => user.clerkId !== args.currentClerkId);
   },
 });
 

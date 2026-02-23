@@ -66,13 +66,22 @@ export const getMessages = query({
   },
 });
 
-// Delete a message (soft delete)
+// Delete a message (soft delete) — only the sender can delete
 export const deleteMessage = mutation({
-  args: { messageId: v.id("messages") },
+  args: {
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    if (!message) throw new Error("Message not found");
+    if (message.senderId !== args.userId) {
+      throw new Error("You can only delete your own messages");
+    }
     await ctx.db.patch(args.messageId, {
       isDeleted: true,
       content: "",
+      reactions: [],
     });
   },
 });
@@ -139,10 +148,13 @@ export const updateTypingIndicator = mutation({
 });
 
 // Get typing indicator for a conversation
+// The `now` parameter is provided by the client and refreshed on a short interval
+// so the query re-evaluates and expired indicators disappear reactively.
 export const getTypingIndicator = query({
   args: { 
     conversationId: v.id("conversations"),
     currentUserId: v.id("users"),
+    now: v.number(),
   },
   handler: async (ctx, args) => {
     const typingIndicators = await ctx.db
@@ -153,7 +165,7 @@ export const getTypingIndicator = query({
 
     const activeTyping = typingIndicators.filter(
       (indicator) =>
-        indicator.isTyping && Date.now() - indicator.lastTypingTime < 3000
+        indicator.isTyping && args.now - indicator.lastTypingTime < 3000
     );
 
     if (activeTyping.length === 0) return null;

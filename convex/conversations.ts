@@ -84,7 +84,10 @@ export const createGroupConversation = mutation({
 
 // Get all conversations for a user (both 1:1 and group)
 export const getUserConversations = query({
-  args: { userId: v.id("users") },
+  args: {
+    userId: v.id("users"),
+    now: v.number(),
+  },
   handler: async (ctx, args) => {
     const conversations = await ctx.db.query("conversations").collect();
 
@@ -181,7 +184,7 @@ export const getUserConversations = query({
         for (const indicator of typingIndicators) {
           if (
             indicator.isTyping &&
-            Date.now() - indicator.lastTypingTime < 3000
+            args.now - indicator.lastTypingTime < 3000
           ) {
             const typingUser = await ctx.db.get(indicator.userId);
             if (typingUser) typingUserNames.push(typingUser.name);

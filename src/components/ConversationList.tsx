@@ -6,6 +6,7 @@ import { Id, Doc } from "../../convex/_generated/dataModel";
 import { UserAvatar } from "./UserAvatar";
 import { formatConversationTime } from "@/lib/formatTime";
 import { Users } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface ConversationListProps {
   currentUser: Doc<"users">;
@@ -20,8 +21,16 @@ export function ConversationList({
   onSelectConversation,
   searchQuery,
 }: ConversationListProps) {
+  // Refresh `now` every 2 s so typing indicators expire reactively
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(id);
+  }, []);
+
   const conversations = useQuery(api.conversations.getUserConversations, {
     userId: currentUser._id,
+    now,
   });
 
   // Loading state with skeleton loaders

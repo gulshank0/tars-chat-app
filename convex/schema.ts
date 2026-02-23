@@ -12,7 +12,11 @@ export default defineSchema({
     lastSeen: v.number(),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .searchIndex("search_name", {
+      searchField: "name",
+      filterFields: ["clerkId"],
+    }),
 
   // Conversations table - supports both 1:1 and group conversations
   conversations: defineTable({
