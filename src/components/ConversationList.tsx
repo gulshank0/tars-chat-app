@@ -28,9 +28,11 @@ export function ConversationList({
     return () => clearInterval(id);
   }, []);
 
+  // `now` is kept as local state only — it is intentionally NOT passed to the
+  // Convex query so the query args stay stable and no re-subscription (and the
+  // resulting skeleton-loader flicker) happens every 2 s.
   const conversations = useQuery(api.conversations.getUserConversations, {
     userId: currentUser._id,
-    now,
   });
 
   // Loading state with skeleton loaders
@@ -102,12 +104,14 @@ export function ConversationList({
           }
         }
 
-        // Build typing text
+        // Build typing text — filter by time client-side to avoid passing `now`
+        // to the Convex query (which would cause flicker on every tick).
         let typingText: string | null = null;
-        if (conversation.typingUserNames.length > 0) {
-          const names = conversation.typingUserNames.map(
-            (n) => n.split(" ")[0]
-          );
+        const activeTypers = conversation.typingIndicators.filter(
+          (t) => now - t.lastTypingTime < 3000
+        );
+        if (activeTypers.length > 0) {
+          const names = activeTypers.map((t) => t.name.split(" ")[0]);
           typingText =
             names.length === 1
               ? `${names[0]} is typing...`

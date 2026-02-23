@@ -86,7 +86,6 @@ export const createGroupConversation = mutation({
 export const getUserConversations = query({
   args: {
     userId: v.id("users"),
-    now: v.number(),
   },
   handler: async (ctx, args) => {
     const conversations = await ctx.db.query("conversations").collect();
@@ -172,7 +171,7 @@ export const getUserConversations = query({
         }
 
         // Get typing indicators (for all other users in this conversation)
-        const typingIndicators = await ctx.db
+        const rawTypingIndicators = await ctx.db
           .query("typingIndicators")
           .withIndex("by_conversation", (q) =>
             q.eq("conversationId", conv._id)
@@ -180,14 +179,18 @@ export const getUserConversations = query({
           .filter((q) => q.neq(q.field("userId"), args.userId))
           .collect();
 
-        const typingUserNames: string[] = [];
-        for (const indicator of typingIndicators) {
-          if (
-            indicator.isTyping &&
-            args.now - indicator.lastTypingTime < 3000
-          ) {
+        // Return raw data so the client can do time-based filtering without
+        // changing query args (which would cause re-subscription flickering).
+        const typingIndicators: { name: string; lastTypingTime: number }[] = [];
+        for (const indicator of rawTypingIndicators) {
+          if (indicator.isTyping) {
             const typingUser = await ctx.db.get(indicator.userId);
-            if (typingUser) typingUserNames.push(typingUser.name);
+            if (typingUser) {
+              typingIndicators.push({
+                name: typingUser.name,
+                lastTypingTime: indicator.lastTypingTime,
+              });
+            }
           }
         }
 
@@ -198,7 +201,7 @@ export const getUserConversations = query({
           lastMessage,
           lastMessageSenderName,
           unreadCount,
-          typingUserNames,
+          typingIndicators,
         };
       })
     );

@@ -26,6 +26,11 @@ export function Sidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [showGroupModal, setShowGroupModal] = useState(false);
 
+  const handleTabChange = (tab: "conversations" | "users") => {
+    setActiveTab(tab);
+    setSearchQuery("");
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -59,7 +64,7 @@ export function Sidebar({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder={activeTab === "conversations" ? "Search conversations..." : "Search users..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -70,7 +75,7 @@ export function Sidebar({
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => setActiveTab("conversations")}
+          onClick={() => handleTabChange("conversations")}
           className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition ${
             activeTab === "conversations"
               ? "border-b-2 border-blue-500 text-blue-500"
@@ -81,7 +86,7 @@ export function Sidebar({
           Chats
         </button>
         <button
-          onClick={() => setActiveTab("users")}
+          onClick={() => handleTabChange("users")}
           className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition ${
             activeTab === "users"
               ? "border-b-2 border-blue-500 text-blue-500"

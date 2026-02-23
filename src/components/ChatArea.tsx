@@ -35,11 +35,16 @@ export function ChatArea({ conversationId, currentUser, onBack }: ChatAreaProps)
     conversationId,
   });
   const messages = useQuery(api.messages.getMessages, { conversationId });
-  const typingUsers = useQuery(api.messages.getTypingIndicator, {
+  // `now` is intentionally NOT passed to the Convex query — stable args mean
+  // no re-subscription (and skeleton-loader flicker) every 2 s.
+  const typingUsersRaw = useQuery(api.messages.getTypingIndicator, {
     conversationId,
     currentUserId: currentUser._id,
-    now,
   });
+  // Filter stale indicators client-side using the local `now` tick.
+  const typingUsers = typingUsersRaw?.filter(
+    (u) => now - u.lastTypingTime < 3000
+  ) ?? null;
   const markAsRead = useMutation(api.messages.markAsRead);
 
   // For 1:1 conversations, find the other user from the participants list

@@ -147,14 +147,14 @@ export const updateTypingIndicator = mutation({
   },
 });
 
-// Get typing indicator for a conversation
-// The `now` parameter is provided by the client and refreshed on a short interval
-// so the query re-evaluates and expired indicators disappear reactively.
+// Get typing indicator for a conversation.
+// `now` is intentionally NOT in args — the client filters by lastTypingTime
+// locally so that changing the clock never causes a new Convex subscription
+// (which would briefly return `undefined` and cause UI flickering).
 export const getTypingIndicator = query({
   args: { 
     conversationId: v.id("conversations"),
     currentUserId: v.id("users"),
-    now: v.number(),
   },
   handler: async (ctx, args) => {
     const typingIndicators = await ctx.db
@@ -164,21 +164,20 @@ export const getTypingIndicator = query({
       .collect();
 
     const activeTyping = typingIndicators.filter(
-      (indicator) =>
-        indicator.isTyping && args.now - indicator.lastTypingTime < 3000
+      (indicator) => indicator.isTyping
     );
 
-    if (activeTyping.length === 0) return null;
+    if (activeTyping.length === 0) return [];
 
-    // Get user info for typing indicators
+    // Return user info + lastTypingTime so the client can expire stale indicators
     const typingUsers = await Promise.all(
       activeTyping.map(async (indicator) => {
         const user = await ctx.db.get(indicator.userId);
-        return user;
+        return user ? { ...user, lastTypingTime: indicator.lastTypingTime } : null;
       })
     );
 
-    return typingUsers.filter(Boolean);
+    return typingUsers.filter((u): u is NonNullable<typeof u> => u !== null);
   },
 });
 
