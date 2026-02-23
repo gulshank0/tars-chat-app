@@ -108,7 +108,7 @@ export function ChatArea({ conversationId, currentUser, onBack }: ChatAreaProps)
   // --- Loading state ---
   if (!conversation || !messages) {
     return (
-      <div className="flex flex-1 flex-col bg-gray-50">
+      <div className="flex flex-1 flex-col bg-gray-50 overflow-hidden min-h-0">
         <div className="flex items-center gap-3 border-b border-gray-200 bg-white p-4">
           <button onClick={onBack} className="md:hidden rounded-lg p-2 hover:bg-gray-100">
             <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -138,7 +138,7 @@ export function ChatArea({ conversationId, currentUser, onBack }: ChatAreaProps)
       : "Offline";
 
   return (
-    <div className="relative flex flex-1 flex-col bg-gray-50">
+    <div className="relative flex flex-1 flex-col bg-gray-50 overflow-hidden min-h-0">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
         <button

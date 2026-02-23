@@ -99,9 +99,9 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
       {/* Sidebar - hidden on mobile when chat is open */}
-      <div className={`${showMobileChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col border-r border-gray-200 bg-white`}>
+      <div className={`${showMobileChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col overflow-hidden border-r border-gray-200 bg-white`}>
         <Sidebar
           currentUser={currentUser}
           clerkUser={user}
@@ -111,7 +111,7 @@ export default function Home() {
       </div>
 
       {/* Chat Area - full screen on mobile, side by side on desktop */}
-      <div className={`${showMobileChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
+      <div className={`${showMobileChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 overflow-hidden`}>
         {selectedConversationId ? (
           <ChatArea
             conversationId={selectedConversationId}
