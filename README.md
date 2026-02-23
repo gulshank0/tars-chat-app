@@ -1,107 +1,132 @@
-# ChatApp - Real-time Messaging Application
+# ChatApp — Real-Time Chat Application
 
-A modern real-time chat application built with **Next.js 16**, **TypeScript**, **Convex**, and **Clerk** authentication — for the Tars Full Stack Engineer Internship Coding Challenge 2026.
+A full-featured, real-time chat application built with **Next.js 16**, **Convex**, and **Clerk**. Supports one-on-one messaging, group chats, typing indicators, read receipts, emoji reactions, online presence tracking, and more — all updating live with zero polling.
+
+---
 
 ## Features
 
-### Required Features (1–10)
+### 💬 Real-Time Messaging
+Messages are delivered instantly to all participants via Convex's reactive subscriptions — no manual polling or custom WebSocket code required.
 
-| # | Feature | Status |
-|---|---------|--------|
-| 1 | **Authentication** – Sign up / sign in via Clerk (email or social login) | ✅ |
-| 2 | **User List & Search** – See all registered users, search by name | ✅ |
-| 3 | **One-on-One Direct Messages** – Private real-time conversations | ✅ |
-| 4 | **Message Timestamps** – Smart formatting (today → time, this year → date, older → full) | ✅ |
-| 5 | **Empty States** – Helpful prompts when there are no conversations, messages, or search results | ✅ |
-| 6 | **Responsive Layout** – Mobile-first sidebar + chat; sidebar hides when chatting on mobile | ✅ |
-| 7 | **Online / Offline Status** – Green dot for online users with heartbeat tracking | ✅ |
-| 8 | **Typing Indicator** – Animated dots when another user is typing | ✅ |
-| 9 | **Unread Message Count** – Badge per conversation showing unread messages | ✅ |
-| 10 | **Smart Auto-Scroll** – Scrolls to new messages automatically; shows "New messages ↓" button when scrolled up | ✅ |
+### 👥 1:1 & Group Conversations
+- Start a direct message with any user in a single click.
+- Create named group chats — search and select members, then start chatting with everyone at once.
+- Group messages display sender labels so you always know who said what.
 
-### Optional / Bonus Features (11–14)
+### 🟢 Online / Offline Presence
+- Tracks user presence using page visibility, focus/blur events, and a 30-second heartbeat.
+- A green dot on avatars and in the chat header shows who's currently online.
 
-| # | Feature | Status |
-|---|---------|--------|
-| 11 | **Delete Own Messages** – Soft delete → "This message was deleted" | ✅ |
-| 12 | **Message Reactions** – React with 👍 ❤️ 😂 😮 😢 (toggle on/off, counts) | ✅ |
-| 13 | **Loading & Error States** – Skeleton loaders, spinners, retry on send failure | ✅ |
-| 14 | **Group Chat** – Create named groups, multi-member conversations, sender labels | ✅ |
+### ⌨️ Typing Indicators
+- See animated "typing…" dots when someone is composing a message.
+- Typing state auto-expires after 3 seconds of inactivity.
+- Shown both inside the chat area and as a preview in the conversation list.
+
+### ✅ Read Receipts & Unread Badges
+- Tracks the last-read message per user per conversation.
+- Unread message count badges appear on conversations in the sidebar (capped at 99+).
+- Opening a conversation automatically marks it as read.
+
+### 😍 Emoji Reactions
+- React to any message with one of five emojis: 👍 ❤️ 😂 😮 😢
+- Toggle reactions on/off — reactions are grouped with counts and highlighted for the current user.
+
+### 🗑️ Message Deletion
+- Senders can soft-delete their own messages.
+- Deleted messages render as *"This message was deleted"* for all participants.
+
+### 🔍 User & Conversation Search
+- Full-text search across users powered by a Convex search index.
+- Client-side filtering of conversations by user or group name.
+
+### 📱 Responsive Layout
+- Mobile-first design that toggles between the sidebar and the chat view.
+- Side-by-side layout on larger desktop screens.
+- A back button in the chat header lets you navigate back on mobile.
+
+### ⬇️ Smart Auto-Scroll
+- Automatically scrolls to the newest message when you're already at the bottom.
+- A floating **"New messages ↓"** button appears when you've scrolled up, letting you jump back instantly.
+
+### 🕐 Smart Timestamps
+- Today's messages show time only, this year's show date, older messages show the full date — always human-readable.
+
+### 🖼️ Avatars with Fallback
+- Displays Clerk profile images, or a deterministic colored-initial fallback avatar derived from the user's name.
+
+### ⚡ Loading & Error States
+- Skeleton loaders and spinners keep the UI responsive while data loads.
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
-- **Backend**: Convex (real-time database)
-- **Authentication**: Clerk
-- **Styling**: Tailwind CSS 4
-- **Icons**: Lucide React
+| Layer | Technology |
+|---|---|
+| **Framework** | Next.js 16 (App Router), React 19 |
+| **Backend & Database** | Convex (real-time serverless backend) |
+| **Authentication** | Clerk (`@clerk/nextjs`) |
+| **Styling** | Tailwind CSS 4, clsx, tailwind-merge, CVA |
+| **Icons** | Lucide React |
+| **Date Formatting** | date-fns |
+| **Webhook Verification** | Svix |
+| **Language** | TypeScript 5 |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
-- A Clerk account (free tier)
-- A Convex account (free tier)
+- A [Clerk](https://clerk.com) account
+- A [Convex](https://convex.dev) account
 
-### Setup Instructions
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd tars-assignment
-   ```
+```bash
+git clone https://github.com/your-username/chatapp.git
+cd chatapp
+npm install
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### Environment Variables
 
-3. **Set up Clerk**
-   - Go to [clerk.com](https://clerk.com) and create a new application
-   - Copy your **Publishable Key** and **Secret Key**
+Create a `.env.local` file in the root:
 
-4. **Set up Convex**
-   - Go to [convex.dev](https://convex.dev) and create a new project
-   - Run `npx convex dev` and follow the prompts to link your project
+```env
+CONVEX_DEPLOYMENT=<your-convex-deployment>
+NEXT_PUBLIC_CONVEX_URL=<your-convex-url>
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<your-clerk-publishable-key>
+CLERK_SECRET_KEY=<your-clerk-secret-key>
+```
 
-5. **Configure environment variables**
-   Create a `.env.local` file:
-   ```env
-   # Convex
-   CONVEX_DEPLOYMENT=<your-convex-deployment>
-   NEXT_PUBLIC_CONVEX_URL=<your-convex-url>
+### Run the Dev Server
 
-   # Clerk
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<your-clerk-publishable-key>
-   CLERK_SECRET_KEY=<your-clerk-secret-key>
-   ```
+```bash
+npm run dev
+```
 
-6. **Run the development servers**
-   ```bash
-   npm run dev
-   ```
-   This runs both Next.js and Convex dev servers concurrently.
+This starts both the Next.js dev server and the Convex backend concurrently. Open [http://localhost:3000](http://localhost:3000) to use the app.
 
-7. **Open the app**
-   Visit [http://localhost:3000](http://localhost:3000)
+---
 
 ## Project Structure
 
 ```
-├── convex/                 # Convex backend
-│   ├── schema.ts          # Database schema
-│   ├── users.ts           # User queries/mutations
-│   ├── conversations.ts   # Conversation queries/mutations
-│   ├── messages.ts        # Message queries/mutations
-│   └── http.ts            # Clerk webhook handler
+├── convex/                  # Convex backend
+│   ├── schema.ts           # Database schema
+│   ├── users.ts            # User queries & mutations
+│   ├── conversations.ts    # Conversation queries & mutations
+│   ├── messages.ts         # Message queries & mutations
+│   └── http.ts             # Clerk webhook handler
 ├── src/
-│   ├── app/               # Next.js App Router pages
-│   │   ├── page.tsx       # Main chat page
-│   │   ├── sign-in/       # Clerk sign-in page
-│   │   └── sign-up/       # Clerk sign-up page
-│   ├── components/        # React components
+│   ├── app/                # Next.js App Router pages
+│   │   ├── page.tsx        # Main chat page
+│   │   ├── sign-in/        # Sign-in page
+│   │   └── sign-up/        # Sign-up page
+│   ├── components/         # React components
 │   │   ├── Sidebar.tsx
 │   │   ├── UserList.tsx
 │   │   ├── ConversationList.tsx
@@ -117,76 +142,20 @@ A modern real-time chat application built with **Next.js 16**, **TypeScript**, *
 │       └── formatTime.ts
 ```
 
-## Database Schema
-
-```typescript
-// Users - synced from Clerk
-users: {
-  clerkId: string,
-  email: string,
-  name: string,
-  imageUrl?: string,
-  isOnline: boolean,
-  lastSeen: number
-}
-
-// Conversations - 1:1 and group chats
-conversations: {
-  participantIds: Id<"users">[],
-  isGroup?: boolean,
-  groupName?: string,
-  groupCreatorId?: Id<"users">,
-  lastMessageId?: Id<"messages">,
-  lastMessageTime?: number
-}
-
-// Messages
-messages: {
-  conversationId: Id<"conversations">,
-  senderId: Id<"users">,
-  content: string,
-  isDeleted: boolean,
-  reactions?: { emoji: string, userId: Id<"users"> }[]
-}
-
-// Typing indicators
-typingIndicators: {
-  conversationId: Id<"conversations">,
-  userId: Id<"users">,
-  isTyping: boolean,
-  lastTypingTime: number
-}
-
-// Read receipts
-readReceipts: {
-  conversationId: Id<"conversations">,
-  userId: Id<"users">,
-  lastReadMessageId?: Id<"messages">,
-  lastReadTime: number
-}
-```
+---
 
 ## Deployment
 
-### Deploy to Vercel
+1. Push your code to GitHub.
+2. Import the project on [Vercel](https://vercel.com).
+3. Add environment variables in the Vercel dashboard.
+4. Deploy the Convex backend:
+   ```bash
+   npx convex deploy
+   ```
 
-1. Push your code to GitHub
-2. Import the project in Vercel
-3. Add environment variables
-4. Deploy!
-
-### Deploy Convex
-
-```bash
-npx convex deploy
-```
+---
 
 ## License
 
 MIT
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
