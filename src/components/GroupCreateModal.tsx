@@ -67,16 +67,16 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-zinc-950 shadow-2xl border border-gray-200 dark:border-zinc-800">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-800 px-5 py-4">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">New Group</h2>
+            <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">New Group</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 hover:text-gray-600 dark:hover:text-gray-300 transition"
           >
             <X className="h-5 w-5" />
           </button>
@@ -85,7 +85,7 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
         <div className="p-5 space-y-4">
           {/* Group name input */}
           <div>
-            <label htmlFor="groupName" className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label htmlFor="groupName" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Group Name
             </label>
             <input
@@ -94,7 +94,7 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
               placeholder="Enter group name…"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 dark:border-zinc-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               autoFocus
             />
           </div>
@@ -108,7 +108,7 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
                 return (
                   <span
                     key={id}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300"
                   >
                     {user.name?.split(" ")[0]}
                     <button
@@ -131,14 +131,14 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
               placeholder="Search users…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 dark:border-zinc-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           {/* User list */}
-          <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200">
+          <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-800">
             {filteredUsers.length === 0 ? (
-              <p className="p-4 text-center text-sm text-gray-500">No users found</p>
+              <p className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No users found</p>
             ) : (
               filteredUsers.map((user) => {
                 const isSelected = selectedIds.includes(user._id);
@@ -146,12 +146,12 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
                   <button
                     key={user._id}
                     onClick={() => toggleUser(user._id)}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-gray-50 ${
-                      isSelected ? "bg-blue-50" : ""
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-gray-50 dark:hover:bg-gray-900 ${
+                      isSelected ? "bg-blue-50 dark:bg-blue-900/30" : ""
                     }`}
                   >
                     <UserAvatar user={user} size="sm" />
-                    <span className="flex-1 truncate text-sm font-medium text-gray-800">
+                    <span className="flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
                       {user.name}
                     </span>
                     <div
@@ -174,10 +174,10 @@ export function GroupCreateModal({ currentUser, onClose, onCreated }: GroupCreat
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+        <div className="flex justify-end gap-2 border-t border-gray-200 dark:border-zinc-800 px-5 py-4">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="rounded-lg border border-gray-300 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 transition hover:bg-gray-50 dark:hover:bg-gray-900"
           >
             Cancel
           </button>

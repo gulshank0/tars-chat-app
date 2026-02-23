@@ -41,10 +41,10 @@ export function ConversationList({
       <div className="space-y-1 p-2">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={`skeleton-conv-${i}`} className="flex animate-pulse items-center gap-3 rounded-lg p-3">
-            <div className="h-12 w-12 flex-shrink-0 rounded-full bg-gray-200" />
+            <div className="h-12 w-12 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-900" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 rounded bg-gray-200" />
-              <div className="h-3 w-1/2 rounded bg-gray-200" />
+              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-900" />
+              <div className="h-3 w-1/2 rounded bg-gray-200 dark:bg-gray-900" />
             </div>
           </div>
         ))}
@@ -67,15 +67,15 @@ export function ConversationList({
   if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
-          <svg className="h-8 w-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20">
+          <svg className="h-8 w-8 text-blue-400 dark:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           {searchQuery ? "No conversations found" : "No conversations yet"}
         </h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {searchQuery
             ? "Try a different search term"
             : "Go to the Users tab to start chatting!"}
@@ -134,8 +134,8 @@ export function ConversationList({
             onClick={() => onSelectConversation(conversation._id)}
             className={`flex w-full items-center gap-3 rounded-lg p-3 transition ${
               isSelected
-                ? "bg-blue-50 ring-1 ring-blue-200"
-                : "hover:bg-gray-50"
+                ? "bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-200 dark:ring-blue-700"
+                : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
             }`}
           >
             {/* Avatar */}
@@ -147,7 +147,7 @@ export function ConversationList({
               <div className="relative flex-shrink-0">
                 <UserAvatar user={conversation.otherUser} size="md" />
                 {conversation.otherUser?.isOnline && (
-                  <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
+                  <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-black bg-green-500" />
                 )}
               </div>
             )}
@@ -155,26 +155,26 @@ export function ConversationList({
             {/* Content */}
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900 truncate text-sm">
+                <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm">
                   {displayName}
                 </h3>
                 {conversation.lastMessageTime && (
-                  <span className="text-[11px] text-gray-400 ml-2 flex-shrink-0">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-2 flex-shrink-0">
                     {formatConversationTime(conversation.lastMessageTime)}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-between mt-0.5">
-                <p className="text-[13px] text-gray-500 truncate pr-2">
+                <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate pr-2">
                   {typingText ? (
-                    <span className="text-blue-500 italic">{typingText}</span>
+                    <span className="text-blue-500 dark:text-blue-400 italic">{typingText}</span>
                   ) : (
                     lastMessagePreview
                   )}
                 </p>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {memberCount && (
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
                       {memberCount}
                     </span>
                   )}

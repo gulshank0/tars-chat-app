@@ -107,11 +107,11 @@ export function MessageInput({ conversationId, currentUser }: MessageInputProps)
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">
       {error && (
         <button
           onClick={handleRetry}
-          className="mb-2 w-full rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 hover:bg-red-100"
+          className="mb-2 w-full rounded-lg bg-red-50 dark:bg-red-900/30 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
         >
           {error}
         </button>
@@ -127,7 +127,7 @@ export function MessageInput({ conversationId, currentUser }: MessageInputProps)
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           rows={1}
-          className="flex-1 resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-zinc-800 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-4 py-3 text-sm focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
         />
         <button
           onClick={handleSend}
@@ -141,7 +141,7 @@ export function MessageInput({ conversationId, currentUser }: MessageInputProps)
           )}
         </button>
       </div>
-      <p className="mt-2 text-xs text-gray-400">
+      <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
         Press Enter to send, Shift+Enter for new line
       </p>
     </div>

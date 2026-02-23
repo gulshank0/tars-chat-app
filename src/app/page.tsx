@@ -49,10 +49,10 @@ export default function Home() {
   // Loading state
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -89,19 +89,19 @@ export default function Home() {
   // Waiting for user sync
   if (!currentUser) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p className="text-gray-600">Setting up your account...</p>
+          <p className="text-gray-600 dark:text-gray-400">Setting up your account...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-black">
       {/* Sidebar - hidden on mobile when chat is open */}
-      <div className={`${showMobileChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col overflow-hidden border-r border-gray-200 bg-white`}>
+      <div className={`${showMobileChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col overflow-hidden border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950`}>
         <Sidebar
           currentUser={currentUser}
           clerkUser={user}
@@ -119,15 +119,15 @@ export default function Home() {
             onBack={handleBackToList}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center bg-gray-50">
+          <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-black">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-200">
-                <svg className="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
+                <svg className="h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-700">Select a conversation</h2>
-              <p className="mt-2 text-gray-500">Choose a user from the sidebar to start chatting</p>
+              <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Select a conversation</h2>
+              <p className="mt-2 text-gray-500 dark:text-gray-400">Choose a user from the sidebar to start chatting</p>
             </div>
           </div>
         )}

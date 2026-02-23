@@ -31,12 +31,12 @@ const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢"];
 // Helper function to get message bubble styling
 function getMessageBubbleStyle(isDeleted: boolean, isOwnMessage: boolean): string {
   if (isDeleted) {
-    return "bg-gray-200 text-gray-500 italic";
+    return "bg-gray-200 dark:bg-gray-900 text-gray-500 dark:text-gray-400 italic";
   }
   if (isOwnMessage) {
     return "bg-blue-500 text-white";
   }
-  return "bg-white text-gray-900 shadow-sm";
+  return "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm";
 }
 
 export function MessageBubble({ message, isOwnMessage, currentUserId, showSenderName }: MessageBubbleProps) {
@@ -99,7 +99,7 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
 
         {/* Timestamp */}
         <p
-          className={`mt-1 text-xs text-gray-500 ${
+          className={`mt-1 text-xs text-gray-500 dark:text-gray-400 ${
             isOwnMessage ? "text-right" : "text-left"
           }`}
         >
@@ -121,12 +121,12 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
                   onClick={() => handleReaction(emoji)}
                   className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
                     hasReacted
-                      ? "bg-blue-100 border border-blue-300"
-                      : "bg-gray-100 hover:bg-gray-200"
+                      ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700"
+                      : "bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800"
                   }`}
                 >
                   <span>{emoji}</span>
-                  <span className="text-gray-600">{userIds.length}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{userIds.length}</span>
                 </button>
               );
             })}
@@ -144,7 +144,7 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
             <div className="relative">
               <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="rounded-full bg-white p-1.5 text-gray-500 shadow hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-full bg-white dark:bg-gray-900 p-1.5 text-gray-500 dark:text-gray-400 shadow hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 <Smile className="h-4 w-4" />
               </button>
@@ -173,7 +173,7 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
             {isOwnMessage && (
               <button
                 onClick={handleDelete}
-                className="rounded-full bg-white p-1.5 text-gray-500 shadow hover:bg-red-50 hover:text-red-500"
+                className="rounded-full bg-white dark:bg-gray-900 p-1.5 text-gray-500 dark:text-gray-400 shadow hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
