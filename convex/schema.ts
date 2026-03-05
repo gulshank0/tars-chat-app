@@ -41,8 +41,22 @@ export default defineSchema({
         v.object({
           emoji: v.string(),
           userId: v.id("users"),
-        })
-      )
+        }),
+      ),
+    ),
+    // Reel sharing support
+    messageType: v.optional(
+      v.union(v.literal("text"), v.literal("reel_share"), v.literal("image")),
+    ),
+    sharedReelId: v.optional(v.string()), // UUID from PostgreSQL reels table
+    sharedReelPreview: v.optional(
+      v.object({
+        thumbnailUrl: v.string(),
+        caption: v.string(),
+        creatorName: v.string(),
+        creatorAvatar: v.optional(v.string()),
+        duration: v.number(),
+      }),
     ),
   }).index("by_conversation", ["conversationId"]),
 
