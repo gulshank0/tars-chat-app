@@ -1,137 +1,346 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useEffect, useState, useCallback } from "react";
-import { Id } from "../../convex/_generated/dataModel";
-import { Sidebar } from "@/components/Sidebar";
-import { ChatArea } from "@/components/ChatArea";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
+import { useTheme } from "@/context/ThemeContext";
+import {
+  MessageSquare,
+  Users,
+  Zap,
+  Shield,
+  Globe,
+  Smile,
+  Sun,
+  Moon,
+} from "lucide-react";
 
-export default function Home() {
-  const { user, isLoaded } = useUser();
-  const [selectedConversationId, setSelectedConversationId] = useState<Id<"conversations"> | null>(null);
-  const [showMobileChat, setShowMobileChat] = useState(false);
+export default function LandingPage() {
+  const { isSignedIn } = useUser();
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
-  // Sync user to Convex
-  const upsertUser = useMutation(api.users.upsertUser);
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    user?.id ? { clerkId: user.id } : "skip"
-  );
-
-  // Track online status
-  useOnlineStatus(user?.id);
-
-  // Sync user on login
-  useEffect(() => {
-    if (user) {
-      upsertUser({
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress || "",
-        name: user.fullName || user.firstName || "User",
-        imageUrl: user.imageUrl,
-      });
-    }
-  }, [user, upsertUser]);
-
-  const handleSelectConversation = useCallback((conversationId: Id<"conversations">) => {
-    setSelectedConversationId(conversationId);
-    setShowMobileChat(true);
-  }, []);
-
-  const handleBackToList = useCallback(() => {
-    setShowMobileChat(false);
-  }, []);
-
-  // Loading state
-  if (!isLoaded) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not logged in
-  if (!user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-        <div className="max-w-md rounded-2xl bg-white p-8 shadow-2xl">
-          <h1 className="mb-4 text-3xl font-bold text-gray-900">Welcome to ChatApp</h1>
-          <p className="mb-6 text-gray-600">
-            Connect with friends and colleagues in real-time. Sign in to start messaging.
-          </p>
-          <div className="flex gap-4">
-            <Link
-              href="/sign-in"
-              className="flex-1 rounded-lg bg-blue-500 px-6 py-3 text-center font-semibold text-white transition hover:bg-blue-600"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="flex-1 rounded-lg border-2 border-blue-500 px-6 py-3 text-center font-semibold text-blue-500 transition hover:bg-blue-50"
-            >
-              Sign Up
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Waiting for user sync
-  if (!currentUser) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p className="text-gray-600 dark:text-gray-400">Setting up your account...</p>
-        </div>
-      </div>
-    );
-  }
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-black">
-      {/* Sidebar - hidden on mobile when chat is open */}
-      <div className={`${showMobileChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col overflow-hidden border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950`}>
-        <Sidebar
-          currentUser={currentUser}
-          clerkUser={user}
-          selectedConversationId={selectedConversationId}
-          onSelectConversation={handleSelectConversation}
+    <div
+      className={`min-h-screen overflow-x-hidden ${isDark ? "bg-black text-white" : "bg-white text-black"}`}
+    >
+      {/* Subtle background gradient orbs — monochrome */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute -top-40 -left-40 w-96 h-96 rounded-full blur-[128px] animate-pulse ${isDark ? "bg-white/[0.03]" : "bg-black/[0.03]"}`}
+        />
+        <div
+          className={`absolute top-1/3 -right-20 w-80 h-80 rounded-full blur-[128px] animate-pulse ${isDark ? "bg-white/[0.04]" : "bg-black/[0.04]"}`}
+          style={{ animationDelay: "2s" }}
+        />
+        <div
+          className={`absolute -bottom-40 left-1/3 w-96 h-96 rounded-full blur-[128px] animate-pulse ${isDark ? "bg-white/[0.03]" : "bg-black/[0.03]"}`}
+          style={{ animationDelay: "4s" }}
         />
       </div>
 
-      {/* Chat Area - full screen on mobile, side by side on desktop */}
-      <div className={`${showMobileChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 overflow-hidden`}>
-        {selectedConversationId ? (
-          <ChatArea
-            conversationId={selectedConversationId}
-            currentUser={currentUser}
-            onBack={handleBackToList}
-          />
-        ) : (
-          <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-black">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
-                <svg className="h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Select a conversation</h2>
-              <p className="mt-2 text-gray-500 dark:text-gray-400">Choose a user from the sidebar to start chatting</p>
+      {/* ─── Navbar ─── */}
+      <nav
+        className={`relative z-50 border-b backdrop-blur-xl ${isDark ? "border-white/[0.06] bg-white/[0.02]" : "border-black/[0.06] bg-black/[0.02]"}`}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 group">
+            <div
+              className={`relative flex h-10 w-10 items-center justify-center rounded-xl shadow-lg transition-shadow duration-300 ${isDark ? "bg-white shadow-white/10 group-hover:shadow-white/20" : "bg-black shadow-black/15 group-hover:shadow-black/25"}`}
+            >
+              <MessageSquare
+                className={`h-5 w-5 ${isDark ? "text-black" : "text-white"}`}
+              />
             </div>
+            <span
+              className={`text-xl font-bold ${isDark ? "text-white" : "text-black"}`}
+            >
+              Tars Chat
+            </span>
+          </Link>
+
+          {/* Auth + Theme Toggle */}
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${isDark ? "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white" : "border-black/10 bg-black/5 text-gray-600 hover:bg-black/10 hover:text-black"}`}
+              aria-label="Toggle theme"
+            >
+              {isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+
+            {isSignedIn ? (
+              <Link
+                href="/chat"
+                className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
+              >
+                Open App
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className={`px-5 py-2.5 rounded-xl border text-sm font-medium active:scale-95 transition-all duration-200 ${isDark ? "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white hover:border-white/20" : "border-black/10 bg-black/5 text-gray-700 hover:bg-black/10 hover:text-black hover:border-black/20"}`}
+                >
+                  Log In
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </nav>
+
+      {/* ─── Hero Section ─── */}
+      <section className="relative z-10 pt-24 pb-20 md:pt-36 md:pb-32">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          {/* Badge */}
+          <div
+            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-sm mb-8 ${isDark ? "border-white/10 bg-white/5" : "border-black/10 bg-black/5"}`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isDark ? "bg-white" : "bg-black"}`}
+              ></span>
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${isDark ? "bg-white" : "bg-black"}`}
+              ></span>
+            </span>
+            <span
+              className={`text-xs font-medium tracking-wide uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}
+            >
+              Real-Time · Instant · Secure
+            </span>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-tight tracking-tight">
+            <span className={isDark ? "text-white" : "text-black"}>
+              Messaging that
+            </span>
+            <br />
+            <span className={isDark ? "text-gray-500" : "text-gray-400"}>
+              feels alive.
+            </span>
+          </h1>
+
+          {/* Subheadline */}
+          <p
+            className={`mt-8 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed ${isDark ? "text-gray-400" : "text-gray-600"}`}
+          >
+            Connect with your team instantly. One-on-one chats, groups, typing
+            indicators, emoji reactions, read receipts — all delivered in
+            real-time with zero&nbsp;polling.
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href={isSignedIn ? "/chat" : "/sign-up"}
+              className={`group relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
+            >
+              Get Started Free
+              <svg
+                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </Link>
+            <Link
+              href="#features"
+              className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl border font-medium text-lg transition-all duration-200 ${isDark ? "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white hover:border-white/20" : "border-black/10 bg-black/5 text-gray-700 hover:bg-black/10 hover:text-black hover:border-black/20"}`}
+            >
+              Explore Features
+            </Link>
+          </div>
+
+          {/* Tech line */}
+          <p
+            className={`mt-10 text-sm ${isDark ? "text-gray-700" : "text-gray-400"}`}
+          >
+            Built with Next.js 16 &middot; Convex &middot; Clerk &middot;
+            TypeScript
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Features Grid ─── */}
+      <section id="features" className="relative z-10 py-24 md:py-32">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2
+              className={`text-3xl sm:text-4xl font-bold ${isDark ? "text-white" : "text-black"}`}
+            >
+              Everything you need to stay connected
+            </h2>
+            <p
+              className={`mt-4 text-lg max-w-xl mx-auto ${isDark ? "text-gray-500" : "text-gray-500"}`}
+            >
+              Powerful features built on a reactive backend — no compromises.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, idx) => (
+              <div
+                key={idx}
+                className={`group relative rounded-2xl border backdrop-blur-sm p-8 transition-all duration-300 ${isDark ? "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10" : "border-black/[0.06] bg-black/[0.02] hover:bg-black/[0.05] hover:border-black/10"}`}
+              >
+                {/* Icon */}
+                <div
+                  className={`inline-flex items-center justify-center h-12 w-12 rounded-xl mb-5 ${isDark ? "bg-white/10" : "bg-black/10"}`}
+                >
+                  <feature.icon
+                    className={`h-6 w-6 ${isDark ? "text-white" : "text-black"}`}
+                  />
+                </div>
+
+                <h3
+                  className={`text-lg font-semibold mb-2 ${isDark ? "text-white" : "text-black"}`}
+                >
+                  {feature.title}
+                </h3>
+                <p
+                  className={`text-sm leading-relaxed ${isDark ? "text-gray-500" : "text-gray-500"}`}
+                >
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── CTA Section ─── */}
+      <section className="relative z-10 py-24 md:py-32">
+        <div className="max-w-4xl mx-auto px-6">
+          <div
+            className={`relative rounded-3xl border p-12 md:p-16 text-center overflow-hidden ${isDark ? "border-white/[0.06] bg-white/[0.03]" : "border-black/[0.06] bg-black/[0.03]"}`}
+          >
+            {/* Background glow */}
+            <div
+              className={`absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 rounded-full blur-[96px] ${isDark ? "bg-white/[0.04]" : "bg-black/[0.04]"}`}
+            />
+
+            <h2
+              className={`relative text-3xl sm:text-4xl font-bold mb-4 ${isDark ? "text-white" : "text-black"}`}
+            >
+              Ready to start chatting?
+            </h2>
+            <p
+              className={`relative text-lg mb-10 max-w-lg mx-auto ${isDark ? "text-gray-400" : "text-gray-600"}`}
+            >
+              Create your free account in seconds. No credit card required.
+            </p>
+            <Link
+              href={isSignedIn ? "/chat" : "/sign-up"}
+              className={`relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
+            >
+              {isSignedIn ? "Open Chat" : "Get Started Free"}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Footer ─── */}
+      <footer
+        className={`relative z-10 border-t py-10 ${isDark ? "border-white/[0.06]" : "border-black/[0.06]"}`}
+      >
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div
+              className={`flex h-7 w-7 items-center justify-center rounded-lg ${isDark ? "bg-white" : "bg-black"}`}
+            >
+              <MessageSquare
+                className={`h-3.5 w-3.5 ${isDark ? "text-black" : "text-white"}`}
+              />
+            </div>
+            <span
+              className={`text-sm font-semibold ${isDark ? "text-gray-500" : "text-gray-500"}`}
+            >
+              Tars Chat
+            </span>
+          </div>
+          <p
+            className={`text-xs ${isDark ? "text-gray-700" : "text-gray-400"}`}
+          >
+            &copy; {new Date().getFullYear()} Tars Chat. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
+
+/* ─── Feature card data ─── */
+const features = [
+  {
+    icon: Zap,
+    title: "Real-Time Messaging",
+    description:
+      "Messages arrive instantly via reactive subscriptions — no polling, no delays, just pure speed.",
+  },
+  {
+    icon: Users,
+    title: "1:1 & Group Chats",
+    description:
+      "DM anyone directly or create named group chats with multiple members. Sender labels keep things clear.",
+  },
+  {
+    icon: Globe,
+    title: "Online Presence",
+    description:
+      "Green dots show who's online in real time, powered by heartbeats and page-visibility tracking.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Typing Indicators",
+    description:
+      "See animated dots when someone is composing a reply — visible in the chat and conversation list.",
+  },
+  {
+    icon: Shield,
+    title: "Read Receipts & Badges",
+    description:
+      "Track unread counts per conversation, auto-mark as read on open, and never miss a message.",
+  },
+  {
+    icon: Smile,
+    title: "Emoji Reactions",
+    description:
+      "React to messages with 👍 ❤️ 😂 😮 😢 — toggle on/off with grouped counts per reaction.",
+  },
+];

@@ -1,0 +1,384 @@
+================================================================================
+                     TARS MESSAGING APP — COMPLETE FEATURE LIST
+================================================================================
+
+Project Name  : Tars-Messaging App
+Tech Stack    : Next.js 16, React 19, Convex (real-time backend), Clerk
+                (authentication), Tailwind CSS 4, TypeScript, Lucide Icons
+Description   : A full-featured, real-time chat messaging application that
+                allows users to sign up, sign in, and communicate with each
+                other through one-on-one and group conversations — all
+                happening live without needing to refresh the page.
+
+
+--------------------------------------------------------------------------------
+1. USER AUTHENTICATION (Sign Up, Sign In, Sign Out)
+--------------------------------------------------------------------------------
+- Users can create a new account using the Sign Up page. The registration
+  process is handled by Clerk, a third-party authentication provider, so users
+  get a secure and smooth sign-up experience.
+- Already registered users can log in through the Sign In page.
+- Once logged in, the user's profile (name, email, and profile picture) is
+  automatically synced to the Convex database so that other users can see them
+  in the app.
+- There is a Sign Out button in the sidebar that lets users log out at any time.
+- Protected routes ensure that only logged-in users can access the main chat
+  page. If someone who is not logged in tries to visit the app, they are
+  redirected to the sign-in page.
+- Clerk webhooks are set up on the backend (using Svix for verification) so
+  that whenever a user is created or updated on Clerk's side, the change is
+  automatically reflected in the app's database.
+
+
+--------------------------------------------------------------------------------
+2. REAL-TIME MESSAGING
+--------------------------------------------------------------------------------
+- Users can send text messages to each other in real time. As soon as a message
+  is sent, it appears instantly on both the sender's and the receiver's screen
+  without any page refresh. This is powered by Convex's real-time subscription
+  system.
+- Messages are stored in the database with a reference to the conversation they
+  belong to and the user who sent them.
+- Each message shows the exact time it was sent. The time format is smart:
+  messages sent today show just the time (e.g., "2:34 PM"), messages from
+  earlier this year show the date and time (e.g., "Feb 15, 2:34 PM"), and
+  messages from a previous year include the full year as well.
+- The message input area is a text box that auto-resizes as the user types
+  longer messages, up to a maximum height, so writing multi-line messages
+  feels natural.
+- Users can press Enter to send a message quickly, or Shift+Enter to add a
+  new line without sending.
+- While a message is being sent, a loading spinner appears on the send button
+  to give visual feedback. If sending fails, an error message is shown with a
+  retry option.
+
+
+--------------------------------------------------------------------------------
+3. ONE-ON-ONE (DIRECT) CONVERSATIONS
+--------------------------------------------------------------------------------
+- Users can start a private conversation with any other user in the app.
+  They simply go to the "Users" tab in the sidebar, find the person they want
+  to chat with, and click on their name.
+- When a user clicks on another user, the app checks if a one-on-one
+  conversation already exists between them. If it does, it opens that existing
+  conversation. If not, a new conversation is created automatically.
+- Each one-on-one conversation shows the other person's name, profile picture,
+  and online status in the chat header.
+
+
+--------------------------------------------------------------------------------
+4. GROUP CONVERSATIONS
+--------------------------------------------------------------------------------
+- Users can create group chats by clicking the "+" button in the sidebar
+  header. This opens a modal (popup) where they can:
+    a) Enter a name for the group.
+    b) Search for and select multiple users to add as members.
+    c) See the selected members displayed as small chips/tags before creating.
+- The creator of the group is automatically included as a member.
+- At least one other member must be selected to create a group.
+- Group conversations are displayed with a special group icon (instead of a
+  user's profile picture) and show the group name and the number of members.
+- In group chats, each message bubble shows the sender's name above the
+  message so you can tell who said what.
+- The last message preview in the conversation list shows the sender's first
+  name followed by the message content (e.g., "John: Hey everyone!").
+
+
+--------------------------------------------------------------------------------
+5. CONVERSATION LIST
+--------------------------------------------------------------------------------
+- The sidebar shows a list of all conversations the user is part of, sorted
+  by the most recent message. The conversation with the newest message always
+  appears at the top.
+- Each conversation item in the list shows:
+    a) The other user's avatar (or a group icon for group chats).
+    b) The name of the other user or the group name.
+    c) A preview of the last message sent in that conversation.
+    d) The time the last message was sent.
+    e) An unread message count badge if there are messages the user hasn't
+       seen yet. If the count exceeds 99, it shows "99+".
+    f) A green dot on the avatar if the other user is currently online
+       (for one-on-one chats).
+- Users can search through their conversations using the search bar at the top
+  of the sidebar. It filters conversations by the other user's name or the
+  group name.
+- If there are no conversations yet, a friendly empty state is shown with a
+  message guiding the user to the Users tab to start chatting.
+- While conversations are loading, skeleton loaders (animated placeholder
+  shapes) are displayed so the user knows content is on its way.
+
+
+--------------------------------------------------------------------------------
+6. USER LIST AND USER SEARCH
+--------------------------------------------------------------------------------
+- The sidebar has a "Users" tab that shows all other registered users in the
+  app. Each user is shown with their avatar, name, email, and a small dot
+  indicating whether they are online (green) or offline (gray).
+- Users can search for other users by name using the search bar. The search
+  uses Convex's built-in full-text search index, which means it is fast and
+  works well even with a large number of users.
+- Clicking on any user in the list immediately starts or opens a conversation
+  with them.
+- If no users match the search, or if there are no other users in the app yet,
+  a helpful empty state is displayed.
+- While the user list is loading, skeleton loaders are shown.
+
+
+--------------------------------------------------------------------------------
+7. TYPING INDICATORS
+--------------------------------------------------------------------------------
+- When a user starts typing a message, all other participants in that
+  conversation see a "typing" indicator in real time. It appears as three
+  animated bouncing dots along with the text "John is typing…"
+- In group chats, if multiple people are typing at the same time, all their
+  names are shown (e.g., "John, Sarah are typing…").
+- The typing indicator is shown both inside the chat area (below the last
+  message) and in the conversation list (replacing the last message preview
+  with an italic blue "John is typing..." text).
+- The typing status automatically expires after 3 seconds of inactivity, so
+  if someone stops typing, the indicator disappears on its own.
+- The implementation is done in a way that avoids unnecessary re-subscriptions
+  to the database — the expiry check happens on the client side using a local
+  timer that refreshes every 2 seconds.
+
+
+--------------------------------------------------------------------------------
+8. MESSAGE REACTIONS (EMOJI REACTIONS)
+--------------------------------------------------------------------------------
+- Users can react to any message with an emoji. When you hover over a message,
+  a small smiley face button appears. Clicking it opens a picker with five
+  commonly used emojis: 👍 ❤️ 😂 😮 😢
+- Clicking an emoji adds your reaction to that message. If you click the same
+  emoji again, your reaction is removed (toggle behavior).
+- Reactions are displayed below the message bubble as small rounded badges
+  showing the emoji and the count of users who reacted with it.
+- If you have already reacted with a particular emoji, that badge is
+  highlighted with a blue tint so you can easily see which reactions are yours.
+- You can also click on a reaction badge to toggle your own reaction to that
+  emoji.
+- Reactions work on both your own messages and other people's messages.
+
+
+--------------------------------------------------------------------------------
+9. MESSAGE DELETION (SOFT DELETE)
+--------------------------------------------------------------------------------
+- Users can delete their own messages. When you hover over one of your sent
+  messages, a trash icon button appears. Clicking it deletes the message.
+- Deletion is a "soft delete" — the message is not removed from the database,
+  but its content is cleared and it is marked as deleted. In place of the
+  original text, it shows "This message was deleted" in italic gray text.
+- Only the sender of a message can delete it. You cannot delete other people's
+  messages.
+- When a message is deleted, its reactions are also removed.
+
+
+--------------------------------------------------------------------------------
+10. READ RECEIPTS AND UNREAD MESSAGE COUNT
+--------------------------------------------------------------------------------
+- The app tracks which messages each user has read. When you open a
+  conversation, all messages in it are automatically marked as read.
+- The conversation list shows an unread count badge next to each conversation
+  that has messages you haven't seen yet. This count updates in real time.
+- Read receipts are stored per user per conversation, keeping track of the
+  last message the user has read and the time they read it.
+
+
+--------------------------------------------------------------------------------
+11. ONLINE / OFFLINE STATUS TRACKING
+--------------------------------------------------------------------------------
+- The app tracks whether each user is currently online or offline. A green dot
+  is shown next to a user's avatar when they are online.
+- Online status is determined by several browser events:
+    a) When the user opens the app or the browser tab becomes visible, they
+       are marked as online.
+    b) When the user switches to another tab, minimizes the browser, or closes
+       the tab, they are marked as offline.
+    c) A heartbeat signal is sent every 30 seconds while the user is active,
+       so the status stays accurate even during long sessions.
+- In one-on-one chats, the chat header shows "Online" or "Offline" below the
+  other user's name.
+- The "last seen" time is also stored for each user, though it is not
+  currently displayed in the UI.
+
+
+--------------------------------------------------------------------------------
+12. DARK MODE / LIGHT MODE / SYSTEM THEME
+--------------------------------------------------------------------------------
+- The app supports three theme modes: Light, Dark, and System.
+- In the Settings modal, the user can pick their preferred theme by clicking
+  on one of three visually distinct buttons (with sun, moon, and monitor
+  icons).
+- "System" mode automatically follows the operating system's theme preference.
+  If the OS is set to dark mode, the app will be dark, and vice versa. It
+  even responds to changes in real time — if you switch your OS theme while
+  the app is open, the app updates immediately.
+- The chosen theme is saved to the browser's local storage, so it persists
+  across page refreshes and sessions.
+- To avoid a "flash of wrong theme" when the page first loads, a small inline
+  script runs before the page renders to apply the correct dark/light class
+  to the HTML element immediately.
+- Theme transitions are smooth — background colors, text colors, and border
+  colors all animate over 200 milliseconds when switching themes.
+
+
+--------------------------------------------------------------------------------
+13. SETTINGS MODAL
+--------------------------------------------------------------------------------
+- The settings can be accessed by clicking the "Settings" button at the bottom
+  of the sidebar. It opens a modal with the following sections:
+    a) Appearance — choose between Light, Dark, or System theme.
+    b) Notifications — toggle push notifications and message sounds on or off.
+    c) Messaging — toggle "Enter to Send" and "Read Receipts" preferences.
+    d) Privacy — shows the current online status visibility (currently always
+       set to "Visible").
+    e) About — displays the app name, version number (1.0.0), and the
+       currently active theme.
+- The settings modal has a clean, organized layout with icons and section
+  headers for easy navigation.
+
+
+--------------------------------------------------------------------------------
+14. RESPONSIVE DESIGN (MOBILE AND DESKTOP)
+--------------------------------------------------------------------------------
+- The app is fully responsive and works well on both mobile devices and
+  desktop screens.
+- On desktop, the sidebar and the chat area are shown side by side. The
+  sidebar takes up a fixed width (320px on medium screens, 384px on large
+  screens), and the chat area fills the remaining space.
+- On mobile, only one panel is shown at a time. When no conversation is
+  selected, the sidebar is shown full-width. When a conversation is tapped,
+  the chat area takes over the full screen, and a back arrow button appears
+  in the header to go back to the conversation list.
+- This mobile-friendly behavior is handled without any extra libraries — it
+  uses Tailwind CSS responsive classes and React state.
+
+
+--------------------------------------------------------------------------------
+15. USER AVATARS
+--------------------------------------------------------------------------------
+- Each user has an avatar displayed next to their name. If the user has a
+  profile picture (synced from Clerk), that image is shown.
+- If the user does not have a profile picture, a colored circle with their
+  initials is shown instead. The color is automatically assigned based on
+  the user's name, so each user gets a unique and consistent color.
+- Avatars come in three sizes (small, medium, large) and are used throughout
+  the app — in the conversation list, the chat header, message bubbles (for
+  group chats), and the user list.
+
+
+--------------------------------------------------------------------------------
+16. AUTO-SCROLL AND NEW MESSAGE NOTIFICATION
+--------------------------------------------------------------------------------
+- When new messages arrive in a conversation, the chat area automatically
+  scrolls down to show the latest message — but only if the user is already
+  at the bottom of the chat.
+- If the user has scrolled up to read older messages, the auto-scroll does not
+  happen. Instead, a floating "New messages" button appears at the bottom of
+  the chat. Clicking it scrolls the user down to the newest message.
+- When switching between conversations, the chat always starts scrolled to
+  the bottom so the most recent messages are visible right away.
+
+
+--------------------------------------------------------------------------------
+17. SKELETON LOADING STATES
+--------------------------------------------------------------------------------
+- Throughout the app, loading states are handled with skeleton loaders —
+  animated gray placeholder shapes that mimic the layout of the content being
+  loaded. This gives users a visual cue that data is being fetched.
+- Skeleton loaders are used in:
+    a) The conversation list while conversations are loading.
+    b) The user list while users are loading.
+    c) The chat header and message area while a conversation is loading.
+    d) The main page while the user's authentication status is being checked.
+
+
+--------------------------------------------------------------------------------
+18. CLERK WEBHOOK INTEGRATION
+--------------------------------------------------------------------------------
+- The app has a backend HTTP endpoint that listens for webhooks from Clerk.
+  When a user creates an account or updates their profile on Clerk, Clerk
+  sends a webhook event to the app.
+- The webhook payload is verified using Svix (a webhook verification library)
+  to ensure it is authentic and has not been tampered with.
+- Once verified, the user's data (name, email, profile picture) is
+  automatically updated in the Convex database, keeping everything in sync.
+
+
+--------------------------------------------------------------------------------
+19. SMART TIME FORMATTING
+--------------------------------------------------------------------------------
+- Timestamps throughout the app are formatted in a user-friendly way:
+    a) Messages sent today show just the time (e.g., "2:34 PM").
+    b) Messages from earlier this year show the month and day (e.g., "Feb 15"
+       in the conversation list, or "Feb 15, 2:34 PM" on individual messages).
+    c) Messages from a previous year include the full year.
+- This is implemented using the "date-fns" library for reliable and
+  lightweight date formatting.
+
+
+--------------------------------------------------------------------------------
+20. CUSTOM SCROLLBAR STYLING
+--------------------------------------------------------------------------------
+- The app uses a custom thin scrollbar (6px wide) for a cleaner look. The
+  scrollbar track is transparent and the thumb (the draggable part) is styled
+  with a subtle gray color that darkens slightly when hovered.
+- This styling applies across the entire app for a consistent visual
+  experience.
+
+
+--------------------------------------------------------------------------------
+21. PROTECTED ROUTES WITH MIDDLEWARE
+--------------------------------------------------------------------------------
+- The app uses Clerk's middleware to protect routes. The sign-in and sign-up
+  pages are public (anyone can access them), but all other pages require the
+  user to be authenticated.
+- If an unauthenticated user tries to access a protected page, they are
+  automatically redirected to the sign-in page.
+- The middleware is configured to skip static files and Next.js internal routes
+  so it does not interfere with the normal functioning of the app.
+
+
+--------------------------------------------------------------------------------
+22. CONVEX REAL-TIME DATABASE
+--------------------------------------------------------------------------------
+- The entire backend is powered by Convex, a real-time serverless database.
+  This means all data (users, conversations, messages, typing indicators,
+  read receipts) is stored in the cloud and updates are pushed to connected
+  clients instantly.
+- The database schema is well-structured with five tables:
+    a) users — stores user profiles synced from Clerk.
+    b) conversations — stores both one-on-one and group conversations.
+    c) messages — stores all messages with sender info and reactions.
+    d) typingIndicators — tracks who is currently typing in which conversation.
+    e) readReceipts — tracks which messages each user has read.
+- Indexes are set up on frequently queried fields for fast lookups (e.g.,
+  looking up a user by their Clerk ID, finding messages by conversation,
+  finding typing indicators by conversation, etc.).
+- A full-text search index is set up on user names so that user search is
+  fast and efficient.
+
+
+--------------------------------------------------------------------------------
+23. SMOOTH THEME TRANSITIONS
+--------------------------------------------------------------------------------
+- When switching between light and dark mode, all color-related CSS properties
+  (background, text, borders, fill, stroke) transition smoothly over
+  200 milliseconds.
+- Animated elements like spinners and skeleton loaders are excluded from these
+  transitions so they are not slowed down.
+
+
+--------------------------------------------------------------------------------
+24. ERROR HANDLING
+--------------------------------------------------------------------------------
+- If a message fails to send, the user sees a clear error message with the
+  option to retry sending.
+- If a user tries to delete someone else's message, the backend throws an
+  error and prevents the action.
+- The app gracefully handles cases where data has not loaded yet by showing
+  loading spinners or skeleton placeholders instead of crashing.
+
+
+================================================================================
+                              END OF FEATURE LIST
+================================================================================
