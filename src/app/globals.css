@@ -136,3 +136,366 @@ body {
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
 }
+
+/* ============================================
+   REELS PLAYER — Instagram-like responsive
+   ============================================ */
+
+/* Container: full-screen vertical snap scroll */
+.reels-container {
+  height: 100dvh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  background: #000;
+}
+.reels-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Each slide fills the viewport */
+.reels-slide {
+  height: 100dvh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex-shrink: 0;
+}
+
+/* Card: fills slide, black background */
+.reel-card {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+/* Video: cover the entire area */
+.reel-video {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+/* Progress bar at the very top */
+.reel-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.15);
+}
+.reel-progress-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  transition: width 0.2s linear;
+}
+
+/* Play/pause overlay */
+.reel-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 15;
+}
+.reel-play-icon {
+  height: 56px;
+  width: 56px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ping-once 0.6s ease-out forwards;
+}
+.reel-play-svg {
+  height: 28px;
+  width: 28px;
+  color: white;
+  fill: white;
+}
+
+/* Bottom gradient */
+.reel-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75),
+    rgba(0, 0, 0, 0.2) 50%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Bottom info area */
+.reel-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 12px 80px 12px; /* bottom padding for mobile nav */
+  z-index: 10;
+  padding-right: 56px; /* make room for action buttons */
+}
+
+/* Creator row */
+.reel-creator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  text-decoration: none;
+}
+.reel-avatar {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+.reel-avatar-fallback {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.reel-creator-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.reel-creator-name span {
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.reel-verified {
+  height: 13px;
+  width: 13px;
+  color: #60a5fa;
+}
+.reel-username {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* Caption */
+.reel-caption {
+  color: white;
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+/* Hashtags */
+.reel-hashtags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.reel-tag {
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Audio line */
+.reel-audio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+.reel-audio-icon {
+  height: 12px;
+  width: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.reel-audio-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Right-side action buttons — Instagram-like */
+.reel-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 80px; /* above mobile nav */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+}
+.reel-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.reel-action-icon {
+  height: 24px;
+  width: 24px;
+  transition: transform 0.15s ease;
+}
+.reel-action-btn:active .reel-action-icon {
+  transform: scale(1.3);
+}
+.reel-action-label {
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Mute button */
+.reel-mute-btn {
+  padding: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  border: none;
+}
+.reel-mute-icon {
+  height: 14px;
+  width: 14px;
+  color: white;
+}
+
+/* ============================================
+   Responsive breakpoints
+   ============================================ */
+
+/* Small phones (≤ 380px) — extra compact */
+@media (max-width: 380px) {
+  .reel-info {
+    padding-bottom: 72px;
+    padding-left: 10px;
+    padding-right: 48px;
+  }
+  .reel-actions {
+    bottom: 72px;
+    right: 6px;
+    gap: 12px;
+  }
+  .reel-action-icon {
+    height: 22px;
+    width: 22px;
+  }
+  .reel-action-label {
+    font-size: 10px;
+  }
+  .reel-avatar,
+  .reel-avatar-fallback {
+    height: 28px;
+    width: 28px;
+  }
+  .reel-creator-name span {
+    font-size: 12px;
+  }
+  .reel-caption {
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+  }
+  .reel-play-icon {
+    height: 48px;
+    width: 48px;
+  }
+  .reel-play-svg {
+    height: 24px;
+    width: 24px;
+  }
+}
+
+/* Tablets / iPads (768px+) — center the player, limit width */
+@media (min-width: 768px) {
+  .reels-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .reels-slide {
+    max-width: 420px;
+    margin: 0 auto;
+    border-radius: 0;
+  }
+  .reel-card {
+    border-radius: 0;
+  }
+  .reel-info {
+    padding-bottom: 24px;
+    padding-left: 16px;
+    padding-right: 64px;
+  }
+  .reel-actions {
+    bottom: 24px;
+    right: 12px;
+    gap: 18px;
+  }
+  .reel-action-icon {
+    height: 26px;
+    width: 26px;
+  }
+  .reel-avatar,
+  .reel-avatar-fallback {
+    height: 36px;
+    width: 36px;
+  }
+  .reel-creator-name span {
+    font-size: 14px;
+  }
+  .reel-caption {
+    font-size: 14px;
+    -webkit-line-clamp: 3;
+  }
+}
+
+/* Desktop (1024px+) — narrower like Instagram's web player */
+@media (min-width: 1024px) {
+  .reels-slide {
+    max-width: 400px;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .reel-card {
+    border-radius: 12px;
+  }
+  .reel-info {
+    padding-bottom: 20px;
+  }
+  .reel-actions {
+    bottom: 20px;
+  }
+}

@@ -48,11 +48,9 @@ function ReelCard({
   const [progress, setProgress] = useState(0);
   const { getToken } = useAuth();
 
-  // View tracking refs
   const viewStartRef = useRef<number>(0);
   const viewRecordedRef = useRef(false);
 
-  // Auto-play/pause based on visibility
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -78,7 +76,6 @@ function ReelCard({
       video.currentTime = 0;
       setProgress(0);
 
-      // Record view when swiping away
       if (viewStartRef.current && !viewRecordedRef.current) {
         const watchDuration = Date.now() - viewStartRef.current;
         const completed =
@@ -103,7 +100,7 @@ function ReelCard({
       if (!token) return;
       await reelsApi.recordView(reel.id, watchDuration, completed, token);
     } catch {
-      // Silently fail — analytics are non-critical
+      // Silently fail
     }
   };
 
@@ -171,13 +168,12 @@ function ReelCard({
     return n.toString();
   };
 
-  // Resolve video URL
   const videoUrl = reel.videoUrl.startsWith("http")
     ? reel.videoUrl
     : `${API_BASE}${reel.videoUrl}`;
 
   return (
-    <div className="relative h-full w-full bg-black snap-start snap-always">
+    <div className="reel-card">
       {/* Video */}
       <video
         ref={videoRef}
@@ -187,78 +183,65 @@ function ReelCard({
         playsInline
         preload="metadata"
         onClick={togglePlay}
-        className="absolute inset-0 h-full w-full object-cover cursor-pointer"
+        className="reel-video"
       />
 
       {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 z-20">
-        <div
-          className="h-full bg-white/80 transition-all duration-200"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="reel-progress">
+        <div className="reel-progress-fill" style={{ width: `${progress}%` }} />
       </div>
 
       {/* Play/Pause overlay */}
       {showPlayPause && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="h-20 w-20 rounded-full bg-black/40 flex items-center justify-center animate-ping-once">
+        <div className="reel-play-overlay">
+          <div className="reel-play-icon">
             {isPlaying ? (
-              <Play className="h-10 w-10 text-white fill-white ml-1" />
+              <Play className="reel-play-svg" />
             ) : (
-              <Pause className="h-10 w-10 text-white fill-white" />
+              <Pause className="reel-play-svg" />
             )}
           </div>
         </div>
       )}
 
       {/* Bottom gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+      <div className="reel-gradient" />
 
       {/* Bottom info */}
-      <div className="absolute bottom-4 left-4 right-20 z-10">
+      <div className="reel-info">
         {/* Creator */}
         <Link
           href={`/profile/${reel.creator?.username || ""}`}
-          className="flex items-center gap-2 mb-2"
+          className="reel-creator"
         >
           {reel.creator?.avatarUrl ? (
-            <img
-              src={reel.creator.avatarUrl}
-              alt=""
-              className="h-9 w-9 rounded-full object-cover border-2 border-white/30"
-            />
+            <img src={reel.creator.avatarUrl} alt="" className="reel-avatar" />
           ) : (
-            <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold text-white">
+            <div className="reel-avatar-fallback">
               {reel.creator?.displayName?.charAt(0)?.toUpperCase() || "?"}
             </div>
           )}
           <div>
-            <div className="flex items-center gap-1">
-              <span className="text-white font-semibold text-sm">
-                {reel.creator?.displayName || "Unknown"}
-              </span>
+            <div className="reel-creator-name">
+              <span>{reel.creator?.displayName || "Unknown"}</span>
               {reel.creator?.isVerified && (
-                <BadgeCheck className="h-3.5 w-3.5 text-blue-400" />
+                <BadgeCheck className="reel-verified" />
               )}
             </div>
-            <span className="text-white/60 text-xs">
+            <span className="reel-username">
               @{reel.creator?.username || "unknown"}
             </span>
           </div>
         </Link>
 
         {/* Caption */}
-        {reel.caption && (
-          <p className="text-white text-sm leading-relaxed line-clamp-3 mb-2">
-            {reel.caption}
-          </p>
-        )}
+        {reel.caption && <p className="reel-caption">{reel.caption}</p>}
 
         {/* Hashtags */}
         {reel.hashtags && reel.hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="reel-hashtags">
             {reel.hashtags.map((tag) => (
-              <span key={tag} className="text-blue-300 text-xs font-medium">
+              <span key={tag} className="reel-tag">
                 #{tag}
               </span>
             ))}
@@ -266,27 +249,22 @@ function ReelCard({
         )}
 
         {/* Audio */}
-        <div className="flex items-center gap-1.5 mt-2">
-          <Music2 className="h-3 w-3 text-white/60" />
-          <span className="text-white/60 text-xs">Original Audio</span>
+        <div className="reel-audio">
+          <Music2 className="reel-audio-icon" />
+          <span className="reel-audio-text">Original Audio</span>
         </div>
       </div>
 
       {/* Right side action buttons */}
-      <div className="absolute right-3 bottom-20 flex flex-col items-center gap-5 z-10">
+      <div className="reel-actions">
         {/* Like */}
-        <button
-          onClick={handleLike}
-          className="flex flex-col items-center gap-1 cursor-pointer"
-        >
+        <button onClick={handleLike} className="reel-action-btn">
           <Heart
-            className={`h-7 w-7 transition-colors ${
+            className={`reel-action-icon ${
               isLiked ? "text-red-500 fill-red-500" : "text-white"
             }`}
           />
-          <span className="text-white text-xs font-medium">
-            {formatCount(likeCount)}
-          </span>
+          <span className="reel-action-label">{formatCount(likeCount)}</span>
         </button>
 
         {/* Comment */}
@@ -295,25 +273,22 @@ function ReelCard({
             e.stopPropagation();
             onOpenComments();
           }}
-          className="flex flex-col items-center gap-1 cursor-pointer"
+          className="reel-action-btn"
         >
-          <MessageCircle className="h-7 w-7 text-white" />
-          <span className="text-white text-xs font-medium">
+          <MessageCircle className="reel-action-icon text-white" />
+          <span className="reel-action-label">
             {formatCount(reel.commentCount)}
           </span>
         </button>
 
         {/* Save */}
-        <button
-          onClick={handleSave}
-          className="flex flex-col items-center gap-1 cursor-pointer"
-        >
+        <button onClick={handleSave} className="reel-action-btn">
           <Bookmark
-            className={`h-7 w-7 transition-colors ${
+            className={`reel-action-icon ${
               isSaved ? "text-yellow-400 fill-yellow-400" : "text-white"
             }`}
           />
-          <span className="text-white text-xs font-medium">
+          <span className="reel-action-label">
             {formatCount(reel.saveCount)}
           </span>
         </button>
@@ -324,21 +299,18 @@ function ReelCard({
             e.stopPropagation();
             onOpenShare();
           }}
-          className="flex flex-col items-center gap-1 cursor-pointer"
+          className="reel-action-btn"
         >
-          <Share2 className="h-7 w-7 text-white" />
-          <span className="text-white text-xs font-medium">Share</span>
+          <Share2 className="reel-action-icon text-white" />
+          <span className="reel-action-label">Share</span>
         </button>
 
         {/* Mute toggle */}
-        <button
-          onClick={toggleMute}
-          className="p-2 rounded-full bg-black/40 cursor-pointer"
-        >
+        <button onClick={toggleMute} className="reel-mute-btn">
           {isMuted ? (
-            <VolumeX className="h-4 w-4 text-white" />
+            <VolumeX className="reel-mute-icon" />
           ) : (
-            <Volume2 className="h-4 w-4 text-white" />
+            <Volume2 className="reel-mute-icon" />
           )}
         </button>
       </div>
@@ -371,7 +343,6 @@ export default function ReelsPlayerPage() {
       if (!token) return;
       const data = await reelsApi.getFeed(token);
       setReels(data.reels || []);
-      // Initialize comment counts
       const counts: Record<string, number> = {};
       (data.reels || []).forEach((r: ReelFeedItem) => {
         counts[r.id] = r.commentCount;
@@ -388,7 +359,6 @@ export default function ReelsPlayerPage() {
     fetchReels();
   }, [fetchReels]);
 
-  // Track which reel is visible using IntersectionObserver
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -470,12 +440,9 @@ export default function ReelsPlayerPage() {
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="h-dvh overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-      >
+      <div ref={containerRef} className="reels-container">
         {reels.map((reel, index) => (
-          <div key={reel.id} data-index={index} className="h-dvh w-full">
+          <div key={reel.id} data-index={index} className="reels-slide">
             <ReelCard
               reel={reel}
               isActive={index === activeIndex}
