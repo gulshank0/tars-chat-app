@@ -4,15 +4,25 @@ import (
 	"context"
 	"database/sql"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gulshan/tars-social/internal/models"
+	"github.com/gulshan/tars-social/pkg/cache"
 	"github.com/lib/pq"
 )
 
-// ReelRepo handles reels database operations.
+const (
+	trendingCacheKey  = "trending:reels"
+	trendingCacheTTL  = 2 * time.Minute
+	hashtagsCacheKey  = "popular:hashtags"
+	hashtagsCacheTTL  = 5 * time.Minute
+)
+
+// ReelRepo handles reels database operations with Redis caching.
 type ReelRepo struct {
-	db *sql.DB
+	db  *sql.DB
+	rdb *cache.RedisClient
 }
 
 // NewReelRepo creates a new ReelRepo.
@@ -20,15 +30,27 @@ func NewReelRepo(db *sql.DB) *ReelRepo {
 	return &ReelRepo{db: db}
 }
 
-// Create inserts a new reel.
+// SetRedis sets the Redis client for caching.
+func (r *ReelRepo) SetRedis(rdb *cache.RedisClient) {
+	r.rdb = rdb
+}
+
+// Create inserts a new reel and invalidates trending cache.
 func (r *ReelRepo) Create(ctx context.Context, reel *models.Reel) error {
-	return r.db.QueryRowContext(ctx, `
+	err := r.db.QueryRowContext(ctx, `
 		INSERT INTO reels (creator_id, video_url, caption, duration_ms, width, height, hashtags, status, is_published)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`, reel.CreatorID, reel.VideoURL, reel.Caption, reel.DurationMs,
 		reel.Width, reel.Height, pq.StringArray(reel.Hashtags), reel.Status, reel.IsPublished,
 	).Scan(&reel.ID, &reel.CreatedAt, &reel.UpdatedAt)
+
+	if err == nil && r.rdb != nil {
+		// Invalidate trending cache since new content was added
+		_ = r.rdb.Del(ctx, trendingCacheKey)
+	}
+
+	return err
 }
 
 // GetByID finds a reel by UUID.
@@ -59,12 +81,22 @@ func (r *ReelRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status models
 		UPDATE reels SET status = $1, thumbnail_url = $2, is_published = CASE WHEN $1 = 'ready' THEN TRUE ELSE is_published END, updated_at = NOW()
 		WHERE id = $3
 	`, status, thumbnailURL, id)
+
+	if err == nil && r.rdb != nil {
+		_ = r.rdb.Del(ctx, trendingCacheKey)
+	}
+
 	return err
 }
 
 // Delete removes a reel.
 func (r *ReelRepo) Delete(ctx context.Context, id, creatorID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM reels WHERE id = $1 AND creator_id = $2`, id, creatorID)
+
+	if err == nil && r.rdb != nil {
+		_ = r.rdb.Del(ctx, trendingCacheKey)
+	}
+
 	return err
 }
 
@@ -138,8 +170,17 @@ func (r *ReelRepo) GetFeed(ctx context.Context, userID uuid.UUID, cursor *string
 	return scanReels(rows)
 }
 
-// GetTrending returns trending reels (48h window first, falls back to all-time).
+// GetTrending returns trending reels (cached in Redis for 2 minutes).
 func (r *ReelRepo) GetTrending(ctx context.Context, limit int) ([]models.Reel, error) {
+	// Try Redis cache first
+	if r.rdb != nil {
+		var cached []models.Reel
+		found, err := r.rdb.GetJSON(ctx, trendingCacheKey, &cached)
+		if err == nil && found && len(cached) > 0 {
+			return cached, nil
+		}
+	}
+
 	// Try last 48 hours first
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, creator_id, video_url, thumbnail_url, caption, audio_id, duration_ms,
@@ -180,7 +221,15 @@ func (r *ReelRepo) GetTrending(ctx context.Context, limit int) ([]models.Reel, e
 			return nil, err2
 		}
 		defer rows2.Close()
-		return scanReels(rows2)
+		reels, err = scanReels(rows2)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Cache the result in Redis
+	if r.rdb != nil && len(reels) > 0 {
+		_ = r.rdb.SetJSON(ctx, trendingCacheKey, reels, trendingCacheTTL)
 	}
 
 	return reels, nil
@@ -239,6 +288,12 @@ func (r *ReelRepo) UpsertHashtags(ctx context.Context, tags []string) error {
 			return err
 		}
 	}
+
+	// Invalidate hashtags cache
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, hashtagsCacheKey)
+	}
+
 	return nil
 }
 
@@ -249,8 +304,17 @@ type Hashtag struct {
 	ReelCount int64     `json:"reelCount"`
 }
 
-// GetPopularHashtags returns the most popular hashtags by reel count.
+// GetPopularHashtags returns the most popular hashtags by reel count (cached).
 func (r *ReelRepo) GetPopularHashtags(ctx context.Context, limit int) ([]Hashtag, error) {
+	// Try Redis cache first
+	if r.rdb != nil {
+		var cached []Hashtag
+		found, err := r.rdb.GetJSON(ctx, hashtagsCacheKey, &cached)
+		if err == nil && found && len(cached) > 0 {
+			return cached, nil
+		}
+	}
+
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, tag, reel_count FROM hashtags
 		WHERE reel_count > 0
@@ -270,7 +334,16 @@ func (r *ReelRepo) GetPopularHashtags(ctx context.Context, limit int) ([]Hashtag
 		}
 		hashtags = append(hashtags, h)
 	}
-	return hashtags, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Cache the result
+	if r.rdb != nil && len(hashtags) > 0 {
+		_ = r.rdb.SetJSON(ctx, hashtagsCacheKey, hashtags, hashtagsCacheTTL)
+	}
+
+	return hashtags, nil
 }
 
 // IncrementShareCount atomically increments the share_count on a reel.
@@ -280,6 +353,12 @@ func (r *ReelRepo) IncrementShareCount(ctx context.Context, reelID uuid.UUID) (b
 		return false, err
 	}
 	rows, _ := result.RowsAffected()
+
+	// Invalidate trending since engagement changed
+	if r.rdb != nil && rows > 0 {
+		_ = r.rdb.Del(ctx, trendingCacheKey)
+	}
+
 	return rows > 0, nil
 }
 
@@ -304,4 +383,3 @@ func (r *ReelRepo) GetByIGMediaID(ctx context.Context, igMediaID string) (*model
 	}
 	return &reel, nil
 }
-

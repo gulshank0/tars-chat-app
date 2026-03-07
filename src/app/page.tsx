@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/context/ThemeContext";
+import { useEffect } from "react";
 import {
   MessageSquare,
   Users,
@@ -17,9 +19,20 @@ import {
 export default function LandingPage() {
   const { isSignedIn } = useUser();
   const { resolvedTheme, setTheme } = useTheme();
+  const router = useRouter();
   const isDark = resolvedTheme === "dark";
 
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
+
+  // Onboarding: redirect signed-in users straight to /explore
+  useEffect(() => {
+    if (isSignedIn) {
+      router.replace("/explore");
+    }
+  }, [isSignedIn, router]);
+
+  // Show nothing while redirecting
+  if (isSignedIn) return null;
 
   return (
     <div
@@ -78,7 +91,7 @@ export default function LandingPage() {
 
             {isSignedIn ? (
               <Link
-                href="/chat"
+                href="/explore"
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
               >
                 Open App
@@ -148,7 +161,7 @@ export default function LandingPage() {
           {/* CTA Buttons */}
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href={isSignedIn ? "/chat" : "/sign-up"}
+              href={isSignedIn ? "/explore" : "/sign-up"}
               className={`group relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
             >
               Get Started Free
@@ -253,7 +266,7 @@ export default function LandingPage() {
               Create your free account in seconds. No credit card required.
             </p>
             <Link
-              href={isSignedIn ? "/chat" : "/sign-up"}
+              href={isSignedIn ? "/explore" : "/sign-up"}
               className={`relative inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 ${isDark ? "bg-white text-black shadow-white/10 hover:shadow-white/20" : "bg-black text-white shadow-black/15 hover:shadow-black/25"}`}
             >
               {isSignedIn ? "Open Chat" : "Get Started Free"}

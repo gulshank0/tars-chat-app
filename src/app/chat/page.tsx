@@ -113,7 +113,7 @@ export default function ChatPage() {
           />
         ) : (
           <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-black">
-            <div className="text-center">
+            <div className="text-center px-6">
               <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
                 <svg
                   className="h-12 w-12 text-gray-400 dark:text-gray-500"
@@ -135,6 +135,12 @@ export default function ChatPage() {
               <p className="mt-2 text-gray-500 dark:text-gray-400">
                 Choose a user from the sidebar to start chatting
               </p>
+              <a
+                href="/reels/player"
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-black dark:bg-white dark:text-black text-sm font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg"
+              >
+                🎬 Watch Reels
+              </a>
             </div>
           </div>
         )}

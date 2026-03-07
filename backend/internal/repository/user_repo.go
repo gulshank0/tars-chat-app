@@ -8,11 +8,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gulshan/tars-social/internal/models"
+	"github.com/gulshan/tars-social/pkg/cache"
 )
 
-// UserRepo handles user_profiles database operations.
+const (
+	userByIDKeyPrefix    = "user:id:"
+	userByClerkKeyPrefix = "user:clerk:"
+	userCacheTTLMinutes  = 5
+)
+
+// UserRepo handles user_profiles database operations with Redis caching.
 type UserRepo struct {
-	db *sql.DB
+	db  *sql.DB
+	rdb *cache.RedisClient
 }
 
 // NewUserRepo creates a new UserRepo.
@@ -20,8 +28,25 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 	return &UserRepo{db: db}
 }
 
-// GetByClerkID finds a user profile by their Clerk ID.
+// SetRedis sets the Redis client for caching.
+func (r *UserRepo) SetRedis(rdb *cache.RedisClient) {
+	r.rdb = rdb
+}
+
+// GetByClerkID finds a user profile by their Clerk ID (cached).
 func (r *UserRepo) GetByClerkID(ctx context.Context, clerkID string) (*models.UserProfile, error) {
+	cacheKey := userByClerkKeyPrefix + clerkID
+
+	// Try Redis cache first
+	if r.rdb != nil {
+		var u models.UserProfile
+		found, err := r.rdb.GetJSON(ctx, cacheKey, &u)
+		if err == nil && found {
+			return &u, nil
+		}
+	}
+
+	// Fallback to DB
 	var u models.UserProfile
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, clerk_id, username, display_name, bio, avatar_url, website,
@@ -36,11 +61,33 @@ func (r *UserRepo) GetByClerkID(ctx context.Context, clerkID string) (*models.Us
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &u, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the result
+	if r.rdb != nil {
+		_ = r.rdb.SetJSON(ctx, cacheKey, &u, userCacheTTLMinutes*60e9) // 5 minutes
+		_ = r.rdb.SetJSON(ctx, userByIDKeyPrefix+u.ID.String(), &u, userCacheTTLMinutes*60e9)
+	}
+
+	return &u, nil
 }
 
-// GetByID finds a user profile by UUID.
+// GetByID finds a user profile by UUID (cached).
 func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.UserProfile, error) {
+	cacheKey := userByIDKeyPrefix + id.String()
+
+	// Try Redis cache first
+	if r.rdb != nil {
+		var u models.UserProfile
+		found, err := r.rdb.GetJSON(ctx, cacheKey, &u)
+		if err == nil && found {
+			return &u, nil
+		}
+	}
+
+	// Fallback to DB
 	var u models.UserProfile
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, clerk_id, username, display_name, bio, avatar_url, website,
@@ -55,7 +102,17 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.UserProfi
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &u, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the result
+	if r.rdb != nil {
+		_ = r.rdb.SetJSON(ctx, cacheKey, &u, userCacheTTLMinutes*60e9)
+		_ = r.rdb.SetJSON(ctx, userByClerkKeyPrefix+u.ClerkID, &u, userCacheTTLMinutes*60e9)
+	}
+
+	return &u, nil
 }
 
 // GetByUsername finds a user profile by username.
@@ -74,7 +131,25 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &u, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate cache for subsequent ID/clerk lookups
+	if r.rdb != nil {
+		_ = r.rdb.SetJSON(ctx, userByIDKeyPrefix+u.ID.String(), &u, userCacheTTLMinutes*60e9)
+		_ = r.rdb.SetJSON(ctx, userByClerkKeyPrefix+u.ClerkID, &u, userCacheTTLMinutes*60e9)
+	}
+
+	return &u, nil
+}
+
+// InvalidateUserCache removes all cached entries for a user.
+func (r *UserRepo) InvalidateUserCache(ctx context.Context, user *models.UserProfile) {
+	if r.rdb == nil || user == nil {
+		return
+	}
+	_ = r.rdb.Del(ctx, userByIDKeyPrefix+user.ID.String(), userByClerkKeyPrefix+user.ClerkID)
 }
 
 // Upsert creates or updates a user profile from Clerk data.
@@ -102,7 +177,14 @@ func (r *UserRepo) Upsert(ctx context.Context, clerkID, displayName, email strin
 		&u.Website, &u.IsVerified, &u.IsPrivate, &u.InstagramID,
 		&u.FollowerCount, &u.FollowingCount, &u.ReelCount, &u.CreatedAt, &u.UpdatedAt,
 	)
-	return &u, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Invalidate old cache entries
+	r.InvalidateUserCache(ctx, &u)
+
+	return &u, nil
 }
 
 // Update updates a user's profile fields.
@@ -157,7 +239,14 @@ func (r *UserRepo) Update(ctx context.Context, id uuid.UUID, req models.UpdatePr
 		&u.Website, &u.IsVerified, &u.IsPrivate, &u.InstagramID,
 		&u.FollowerCount, &u.FollowingCount, &u.ReelCount, &u.CreatedAt, &u.UpdatedAt,
 	)
-	return &u, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Invalidate cache after update
+	r.InvalidateUserCache(ctx, &u)
+
+	return &u, nil
 }
 
 // SearchByUsername searches users by username prefix.
@@ -198,6 +287,12 @@ func (r *UserRepo) SaveInstagramToken(ctx context.Context, userID uuid.UUID, igU
 		SET instagram_id = $2, ig_access_token = $3, updated_at = NOW()
 		WHERE id = $1
 	`, userID, igUserID, accessToken)
+
+	// Invalidate cache
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, userByIDKeyPrefix+userID.String())
+	}
+
 	return err
 }
 
@@ -208,6 +303,11 @@ func (r *UserRepo) ClearInstagramToken(ctx context.Context, userID uuid.UUID) er
 		SET instagram_id = NULL, ig_access_token = NULL, updated_at = NOW()
 		WHERE id = $1
 	`, userID)
+
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, userByIDKeyPrefix+userID.String())
+	}
+
 	return err
 }
 
@@ -222,4 +322,3 @@ func (r *UserRepo) GetInstagramToken(ctx context.Context, userID uuid.UUID) (str
 	}
 	return token.String, nil
 }
-

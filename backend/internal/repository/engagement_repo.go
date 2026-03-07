@@ -7,16 +7,29 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gulshan/tars-social/internal/models"
+	"github.com/gulshan/tars-social/pkg/cache"
 )
 
 // EngagementRepo handles likes, comments, saves, and views.
 type EngagementRepo struct {
-	db *sql.DB
+	db         *sql.DB
+	rdb        *cache.RedisClient
+	viewBuffer *cache.ViewBuffer
 }
 
 // NewEngagementRepo creates a new EngagementRepo.
 func NewEngagementRepo(db *sql.DB) *EngagementRepo {
 	return &EngagementRepo{db: db}
+}
+
+// SetRedis sets the Redis client for caching.
+func (r *EngagementRepo) SetRedis(rdb *cache.RedisClient) {
+	r.rdb = rdb
+}
+
+// SetViewBuffer sets the view buffer for batched view count writes.
+func (r *EngagementRepo) SetViewBuffer(vb *cache.ViewBuffer) {
+	r.viewBuffer = vb
 }
 
 // ---- LIKES ----
@@ -46,7 +59,17 @@ func (r *EngagementRepo) LikeReel(ctx context.Context, reelID, userID uuid.UUID)
 		return false, err
 	}
 
-	return true, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return false, err
+	}
+
+	// Invalidate trending cache since engagement changed
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, trendingCacheKey)
+	}
+
+	return true, nil
 }
 
 // UnlikeReel removes a like. Returns true if removed.
@@ -72,7 +95,16 @@ func (r *EngagementRepo) UnlikeReel(ctx context.Context, reelID, userID uuid.UUI
 		return false, err
 	}
 
-	return true, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return false, err
+	}
+
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, "trending:reels")
+	}
+
+	return true, nil
 }
 
 // IsLiked checks if a user has liked a reel.
@@ -190,7 +222,17 @@ func (r *EngagementRepo) AddComment(ctx context.Context, reelID, userID uuid.UUI
 		return uuid.Nil, err
 	}
 
-	return id, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// Invalidate trending cache since engagement changed
+	if r.rdb != nil {
+		_ = r.rdb.Del(ctx, "trending:reels")
+	}
+
+	return id, nil
 }
 
 // DeleteComment soft-deletes a comment.
@@ -240,15 +282,10 @@ func (r *EngagementRepo) GetComments(ctx context.Context, reelID uuid.UUID, limi
 
 // ---- VIEWS ----
 
-// RecordView inserts a view record for analytics.
+// RecordView records a reel view. View count increment is buffered in Redis.
 func (r *EngagementRepo) RecordView(ctx context.Context, reelID uuid.UUID, userID *uuid.UUID, watchDuration int, completed bool) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	_, err = tx.ExecContext(ctx, `
+	// Insert detailed view analytics row into PostgreSQL
+	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO reel_views (reel_id, user_id, watch_duration, completed)
 		VALUES ($1, $2, $3, $4)
 	`, reelID, userID, watchDuration, completed)
@@ -256,10 +293,13 @@ func (r *EngagementRepo) RecordView(ctx context.Context, reelID uuid.UUID, userI
 		return err
 	}
 
-	_, err = tx.ExecContext(ctx, `UPDATE reels SET view_count = view_count + 1 WHERE id = $1`, reelID)
-	if err != nil {
-		return err
+	// Buffer the view count increment in Redis (flushed periodically)
+	if r.viewBuffer != nil {
+		_ = r.viewBuffer.BufferView(ctx, reelID)
+	} else {
+		// Fallback: direct DB update when view buffer is not available
+		_, _ = r.db.ExecContext(ctx, `UPDATE reels SET view_count = view_count + 1 WHERE id = $1`, reelID)
 	}
 
-	return tx.Commit()
+	return nil
 }
