@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gulshan/tars-social/internal/middleware"
 	"github.com/gulshan/tars-social/internal/models"
@@ -164,6 +165,40 @@ func (h *EngagementHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, map[string]string{"commentId": commentID.String()}, http.StatusCreated)
 }
 
+// GetComments returns paginated comments for a reel with user info.
+func (h *EngagementHandler) GetComments(w http.ResponseWriter, r *http.Request) {
+	reelID, err := parseUUID(r.PathValue("id"))
+	if err != nil {
+		jsonError(w, "invalid reel ID", http.StatusBadRequest)
+		return
+	}
+
+	limit := 20
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	comments, err := h.engagementRepo.GetComments(r.Context(), reelID, limit, offset)
+	if err != nil {
+		jsonError(w, "failed to load comments", http.StatusInternalServerError)
+		return
+	}
+
+	if comments == nil {
+		comments = []models.CommentWithUser{}
+	}
+
+	jsonResponse(w, comments, http.StatusOK)
+}
+
 // DeleteComment deletes a comment owned by the current user.
 func (h *EngagementHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	clerkID, ok := middleware.GetClerkUserID(r.Context())
@@ -281,4 +316,50 @@ func (h *EngagementHandler) RecordView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, map[string]string{"status": "recorded"}, http.StatusOK)
+}
+
+// ShareReel records a share event and notifies the reel creator.
+func (h *EngagementHandler) ShareReel(w http.ResponseWriter, r *http.Request) {
+	clerkID, ok := middleware.GetClerkUserID(r.Context())
+	if !ok {
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	reelID, err := parseUUID(r.PathValue("id"))
+	if err != nil {
+		jsonError(w, "invalid reel ID", http.StatusBadRequest)
+		return
+	}
+
+	user, _ := h.userRepo.GetByClerkID(r.Context(), clerkID)
+	if user == nil {
+		jsonError(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	// Increment share count
+	_, err = h.reelRepo.IncrementShareCount(r.Context(), reelID)
+	if err != nil {
+		jsonError(w, "failed to share", http.StatusInternalServerError)
+		return
+	}
+
+	// Create notification for reel creator (async)
+	go func() {
+		reel, _ := h.reelRepo.GetByID(r.Context(), reelID)
+		if reel != nil && reel.CreatorID != user.ID {
+			entityType := "reel"
+			n := &models.Notification{
+				RecipientID: reel.CreatorID,
+				ActorID:     &user.ID,
+				Type:        models.NotifTypeReelShare,
+				EntityType:  &entityType,
+				EntityID:    &reelID,
+			}
+			_ = h.notifRepo.Create(r.Context(), n)
+		}
+	}()
+
+	jsonResponse(w, map[string]string{"status": "shared"}, http.StatusOK)
 }

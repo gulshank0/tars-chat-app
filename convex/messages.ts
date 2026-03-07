@@ -27,7 +27,7 @@ export const sendMessage = mutation({
     const typingIndicator = await ctx.db
       .query("typingIndicators")
       .withIndex("by_user_conversation", (q) =>
-        q.eq("userId", args.senderId).eq("conversationId", args.conversationId)
+        q.eq("userId", args.senderId).eq("conversationId", args.conversationId),
       )
       .first();
 
@@ -42,13 +42,50 @@ export const sendMessage = mutation({
   },
 });
 
+// Share a reel to a conversation
+export const sendReelShare = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    senderId: v.id("users"),
+    reelId: v.string(),
+    reelPreview: v.object({
+      thumbnailUrl: v.string(),
+      caption: v.string(),
+      creatorName: v.string(),
+      creatorAvatar: v.optional(v.string()),
+      duration: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const messageId = await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      senderId: args.senderId,
+      content: "",
+      isDeleted: false,
+      reactions: [],
+      messageType: "reel_share",
+      sharedReelId: args.reelId,
+      sharedReelPreview: args.reelPreview,
+    });
+
+    await ctx.db.patch(args.conversationId, {
+      lastMessageId: messageId,
+      lastMessageTime: Date.now(),
+    });
+
+    return messageId;
+  },
+});
+
 // Get messages for a conversation
 export const getMessages = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
       .collect();
 
     // Get sender info for each message
@@ -59,7 +96,7 @@ export const getMessages = query({
           ...message,
           sender,
         };
-      })
+      }),
     );
 
     return messagesWithSender;
@@ -98,10 +135,10 @@ export const addReaction = mutation({
     if (!message) return;
 
     const reactions = message.reactions || [];
-    
+
     // Check if user already reacted with this emoji
     const existingReactionIndex = reactions.findIndex(
-      (r) => r.userId === args.userId && r.emoji === args.emoji
+      (r) => r.userId === args.userId && r.emoji === args.emoji,
     );
 
     if (existingReactionIndex !== -1) {
@@ -127,7 +164,7 @@ export const updateTypingIndicator = mutation({
     const existingIndicator = await ctx.db
       .query("typingIndicators")
       .withIndex("by_user_conversation", (q) =>
-        q.eq("userId", args.userId).eq("conversationId", args.conversationId)
+        q.eq("userId", args.userId).eq("conversationId", args.conversationId),
       )
       .first();
 
@@ -152,19 +189,21 @@ export const updateTypingIndicator = mutation({
 // locally so that changing the clock never causes a new Convex subscription
 // (which would briefly return `undefined` and cause UI flickering).
 export const getTypingIndicator = query({
-  args: { 
+  args: {
     conversationId: v.id("conversations"),
     currentUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const typingIndicators = await ctx.db
       .query("typingIndicators")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
       .filter((q) => q.neq(q.field("userId"), args.currentUserId))
       .collect();
 
     const activeTyping = typingIndicators.filter(
-      (indicator) => indicator.isTyping
+      (indicator) => indicator.isTyping,
     );
 
     if (activeTyping.length === 0) return [];
@@ -173,8 +212,10 @@ export const getTypingIndicator = query({
     const typingUsers = await Promise.all(
       activeTyping.map(async (indicator) => {
         const user = await ctx.db.get(indicator.userId);
-        return user ? { ...user, lastTypingTime: indicator.lastTypingTime } : null;
-      })
+        return user
+          ? { ...user, lastTypingTime: indicator.lastTypingTime }
+          : null;
+      }),
     );
 
     return typingUsers.filter((u): u is NonNullable<typeof u> => u !== null);
@@ -192,7 +233,7 @@ export const markAsRead = mutation({
     const existingReceipt = await ctx.db
       .query("readReceipts")
       .withIndex("by_user_conversation", (q) =>
-        q.eq("userId", args.userId).eq("conversationId", args.conversationId)
+        q.eq("userId", args.userId).eq("conversationId", args.conversationId),
       )
       .first();
 

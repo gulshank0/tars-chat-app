@@ -39,6 +39,7 @@ export interface UserProfile {
   website?: string;
   isVerified: boolean;
   isPrivate: boolean;
+  instagramId?: string;
   followerCount: number;
   followingCount: number;
   reelCount: number;
@@ -71,10 +72,38 @@ export interface ReelFeedItem {
   isFollowing: boolean;
 }
 
+export interface HashtagItem {
+  id: string;
+  tag: string;
+  reelCount: number;
+}
+
+export interface InstagramMedia {
+  id: string;
+  caption: string;
+  media_type: string;
+  media_url: string;
+  thumbnail_url: string;
+  timestamp: string;
+  permalink: string;
+}
+
 export interface FeedResponse {
   reels: ReelFeedItem[];
   nextCursor: string;
   hasMore: boolean;
+}
+
+export interface CommentItem {
+  id: string;
+  reelId: string;
+  userId: string;
+  parentId?: string;
+  content: string;
+  likeCount: number;
+  isDeleted: boolean;
+  createdAt: string;
+  user: UserProfile;
 }
 
 export interface NotificationItem {
@@ -165,6 +194,33 @@ export const reelsApi = {
   getReel: (id: string, token?: string) =>
     apiRequest<ReelFeedItem>(`/api/v1/reels/${id}`, {}, token),
 
+  getUserReels: (userId: string, token: string) =>
+    apiRequest<ReelFeedItem[]>(`/api/v1/users/${userId}/reels`, {}, token),
+
+  getComments: (reelId: string, token: string, limit = 20, offset = 0) =>
+    apiRequest<CommentItem[]>(
+      `/api/v1/reels/${reelId}/comments?limit=${limit}&offset=${offset}`,
+      {},
+      token,
+    ),
+
+  searchByHashtag: (tag: string, token: string) =>
+    apiRequest<ReelFeedItem[]>(
+      `/api/v1/reels/search?tag=${encodeURIComponent(tag)}`,
+      {},
+      token,
+    ),
+
+  getPopularHashtags: (token: string) =>
+    apiRequest<HashtagItem[]>("/api/v1/hashtags/popular", {}, token),
+
+  shareReel: (id: string, token: string) =>
+    apiRequest<{ status: string }>(
+      `/api/v1/reels/${id}/share`,
+      { method: "POST" },
+      token,
+    ),
+
   like: (id: string, token: string) =>
     apiRequest<{ liked: boolean }>(
       `/api/v1/reels/${id}/like`,
@@ -233,6 +289,65 @@ export const notificationsApi = {
     apiRequest<{ count: number }>(
       "/api/v1/notifications/unread-count",
       {},
+      token,
+    ),
+};
+
+export const instagramApi = {
+  getAuthUrl: (token: string) =>
+    apiRequest<{ authUrl: string }>("/api/v1/instagram/auth-url", {}, token),
+
+  disconnect: (token: string) =>
+    apiRequest<{ connected: boolean }>(
+      "/api/v1/instagram/disconnect",
+      { method: "POST" },
+      token,
+    ),
+
+  getReels: (token: string) =>
+    apiRequest<InstagramMedia[]>("/api/v1/instagram/reels", {}, token),
+
+  importReel: (
+    media: {
+      mediaId: string;
+      mediaUrl: string;
+      thumbnailUrl: string;
+      caption: string;
+      hashtags: string[];
+    },
+    token: string,
+  ) =>
+    apiRequest(
+      "/api/v1/instagram/import",
+      {
+        method: "POST",
+        body: JSON.stringify(media),
+      },
+      token,
+    ),
+
+  getOEmbed: (url: string, token: string) =>
+    apiRequest(
+      `/api/v1/instagram/oembed?url=${encodeURIComponent(url)}`,
+      {},
+      token,
+    ),
+};
+
+export const reportApi = {
+  create: (
+    entityType: string,
+    entityId: string,
+    reason: string,
+    description: string,
+    token: string,
+  ) =>
+    apiRequest<{ reported: boolean; reportId: string }>(
+      "/api/v1/reports",
+      {
+        method: "POST",
+        body: JSON.stringify({ entityType, entityId, reason, description }),
+      },
       token,
     ),
 };

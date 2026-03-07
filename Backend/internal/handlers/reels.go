@@ -105,6 +105,13 @@ func (h *ReelsHandler) CreateReel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Upsert hashtags into the hashtags table
+	if len(req.Hashtags) > 0 {
+		go func() {
+			_ = h.reelRepo.UpsertHashtags(r.Context(), req.Hashtags)
+		}()
+	}
+
 	// TODO: Enqueue video processing job (transcoding + thumbnail generation)
 	// For now, mark as ready immediately
 	_ = h.reelRepo.UpdateStatus(r.Context(), reel.ID, models.ReelStatusReady, nil)
@@ -283,4 +290,48 @@ func (h *ReelsHandler) GetUserReels(w http.ResponseWriter, r *http.Request) {
 
 	_ = fmt.Sprint(len(reels))
 	jsonResponse(w, reels, http.StatusOK)
+}
+
+// SearchByHashtag searches reels by hashtag.
+func (h *ReelsHandler) SearchByHashtag(w http.ResponseWriter, r *http.Request) {
+	tag := r.URL.Query().Get("tag")
+	if tag == "" {
+		jsonError(w, "missing tag parameter", http.StatusBadRequest)
+		return
+	}
+
+	reels, err := h.reelRepo.SearchByHashtag(r.Context(), tag, 20)
+	if err != nil {
+		jsonError(w, "failed to search reels", http.StatusInternalServerError)
+		return
+	}
+
+	feedItems := make([]models.ReelFeedItem, 0, len(reels))
+	for _, reel := range reels {
+		creator, _ := h.userRepo.GetByID(r.Context(), reel.CreatorID)
+		if creator == nil {
+			continue
+		}
+		feedItems = append(feedItems, models.ReelFeedItem{
+			Reel:    reel,
+			Creator: *creator,
+		})
+	}
+
+	jsonResponse(w, feedItems, http.StatusOK)
+}
+
+// GetPopularHashtags returns the most popular hashtags.
+func (h *ReelsHandler) GetPopularHashtags(w http.ResponseWriter, r *http.Request) {
+	hashtags, err := h.reelRepo.GetPopularHashtags(r.Context(), 15)
+	if err != nil {
+		jsonError(w, "failed to get hashtags", http.StatusInternalServerError)
+		return
+	}
+
+	if hashtags == nil {
+		hashtags = []repository.Hashtag{}
+	}
+
+	jsonResponse(w, hashtags, http.StatusOK)
 }

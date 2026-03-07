@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 
 	"github.com/gulshan/tars-social/internal/middleware"
+	"github.com/gulshan/tars-social/internal/models"
 	"github.com/gulshan/tars-social/internal/repository"
 )
 
@@ -52,17 +53,17 @@ func (h *SocialHandler) FollowUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if created {
-		// Create follow notification
-		entityType := "user"
+		// Create follow notification for the target user
 		go func() {
-			n := &notifModel{
+			entityType := "user"
+			n := &models.Notification{
 				RecipientID: targetID,
 				ActorID:     &currentUser.ID,
-				Type:        "follow",
+				Type:        models.NotifTypeFollow,
 				EntityType:  &entityType,
 				EntityID:    &currentUser.ID,
 			}
-			_ = h.createNotification(n)
+			_ = h.notifRepo.Create(context.Background(), n)
 		}()
 	}
 
@@ -147,19 +148,4 @@ func (h *SocialHandler) GetFollowing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, profiles, http.StatusOK)
-}
-
-// notifModel is a lightweight struct to avoid import cycles.
-type notifModel struct {
-	RecipientID interface{}
-	ActorID     interface{}
-	Type        string
-	EntityType  *string
-	EntityID    interface{}
-}
-
-func (h *SocialHandler) createNotification(n *notifModel) error {
-	// Simplified — in production, use an event bus
-	_, _ = json.Marshal(n)
-	return nil
 }

@@ -1,24 +1,80 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useTheme } from "@/context/ThemeContext";
-import { profileApi, type UserProfile } from "@/lib/api";
+import {
+  profileApi,
+  reelsApi,
+  type UserProfile,
+  type ReelFeedItem,
+  type HashtagItem,
+} from "@/lib/api";
 import UserCard from "@/components/social/UserCard";
+import TrendingReelCard from "@/components/reels/TrendingReelCard";
 import BottomNav from "@/components/navigation/BottomNav";
-import { Search, TrendingUp, Users, X } from "lucide-react";
+import {
+  Search,
+  TrendingUp,
+  Users,
+  X,
+  Hash,
+  Flame,
+  Loader2,
+} from "lucide-react";
 
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState<UserProfile[]>([]);
+  const [userResults, setUserResults] = useState<UserProfile[]>([]);
+  const [hashtagResults, setHashtagResults] = useState<ReelFeedItem[]>([]);
+  const [trendingReels, setTrendingReels] = useState<ReelFeedItem[]>([]);
+  const [popularHashtags, setPopularHashtags] = useState<HashtagItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [loadingTrending, setLoadingTrending] = useState(true);
   const { getToken } = useAuth();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
+  const isHashtagSearch = searchQuery.startsWith("#") && searchQuery.length > 1;
+
+  // Fetch trending reels on mount
+  const fetchTrending = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const data = await reelsApi.getTrending(token);
+      setTrendingReels(data || []);
+    } catch {
+      console.error("Failed to fetch trending");
+    } finally {
+      setLoadingTrending(false);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    fetchTrending();
+  }, [fetchTrending]);
+
+  // Fetch popular hashtags on mount
+  useEffect(() => {
+    const fetchHashtags = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const data = await reelsApi.getPopularHashtags(token);
+        setPopularHashtags(data || []);
+      } catch {
+        console.error("Failed to fetch hashtags");
+      }
+    };
+    fetchHashtags();
+  }, [getToken]);
+
+  // Search users or hashtags
   useEffect(() => {
     if (searchQuery.length < 2) {
-      setResults([]);
+      setUserResults([]);
+      setHashtagResults([]);
       return;
     }
 
@@ -27,8 +83,17 @@ export default function ExplorePage() {
       try {
         const token = await getToken();
         if (!token) return;
-        const users = await profileApi.searchUsers(searchQuery, token);
-        setResults(users || []);
+
+        if (isHashtagSearch) {
+          const tag = searchQuery.slice(1);
+          const reels = await reelsApi.searchByHashtag(tag, token);
+          setHashtagResults(reels || []);
+          setUserResults([]);
+        } else {
+          const users = await profileApi.searchUsers(searchQuery, token);
+          setUserResults(users || []);
+          setHashtagResults([]);
+        }
       } catch {
         console.error("Search failed");
       } finally {
@@ -37,7 +102,7 @@ export default function ExplorePage() {
     }, 300);
 
     return () => clearTimeout(debounce);
-  }, [searchQuery, getToken]);
+  }, [searchQuery, getToken, isHashtagSearch]);
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-black" : "bg-white"} pb-20`}>
@@ -63,7 +128,7 @@ export default function ExplorePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search people..."
+              placeholder="Search people or #hashtags..."
               className={`w-full pl-10 pr-10 py-2.5 rounded-xl border text-sm outline-none transition-colors ${
                 isDark
                   ? "bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-white/25"
@@ -85,65 +150,150 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        {/* Results */}
+        {/* Search Results */}
         {searching && (
           <div className="px-5 py-8 text-center">
-            <div className="inline-block h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin opacity-30" />
+            <Loader2
+              className={`inline-block h-6 w-6 animate-spin ${
+                isDark ? "text-gray-600" : "text-gray-300"
+              }`}
+            />
           </div>
         )}
 
-        {!searching && results.length > 0 && (
+        {/* User results */}
+        {!searching && userResults.length > 0 && (
           <div className="px-3">
             <p
               className={`px-2 py-2 text-xs font-semibold uppercase tracking-wider ${
                 isDark ? "text-gray-600" : "text-gray-400"
               }`}
             >
-              Results
+              <Users className="inline h-3.5 w-3.5 mr-1" />
+              People
             </p>
-            {results.map((user) => (
+            {userResults.map((user) => (
               <UserCard key={user.id} user={user} showFollowButton />
             ))}
           </div>
         )}
 
-        {!searching && searchQuery.length >= 2 && results.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Users
-              className={`h-12 w-12 mb-3 ${
-                isDark ? "text-gray-800" : "text-gray-200"
-              }`}
-            />
+        {/* Hashtag results */}
+        {!searching && hashtagResults.length > 0 && (
+          <div className="px-4">
             <p
-              className={`text-sm ${
+              className={`py-2 text-xs font-semibold uppercase tracking-wider ${
                 isDark ? "text-gray-600" : "text-gray-400"
               }`}
             >
-              No users found
+              <Hash className="inline h-3.5 w-3.5 mr-1" />
+              Reels for {searchQuery}
             </p>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              {hashtagResults.map((reel) => (
+                <TrendingReelCard key={reel.id} reel={reel} />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Default state: suggestions */}
+        {/* No results */}
+        {!searching &&
+          searchQuery.length >= 2 &&
+          userResults.length === 0 &&
+          hashtagResults.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Users
+                className={`h-12 w-12 mb-3 ${
+                  isDark ? "text-gray-800" : "text-gray-200"
+                }`}
+              />
+              <p
+                className={`text-sm ${
+                  isDark ? "text-gray-600" : "text-gray-400"
+                }`}
+              >
+                No results found
+              </p>
+            </div>
+          )}
+
+        {/* Default state: Popular Hashtags + Trending Reels */}
         {searchQuery.length < 2 && (
-          <div className="px-3 mt-2">
-            {/* Suggested section */}
-            <div className="px-2 pb-3">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp
-                  className={`h-4 w-4 ${
-                    isDark ? "text-gray-500" : "text-gray-400"
+          <div className="px-4 mt-2">
+            {/* Popular Hashtags */}
+            {popularHashtags.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Hash
+                    className={`h-4 w-4 ${
+                      isDark ? "text-purple-400" : "text-purple-500"
+                    }`}
+                  />
+                  <span
+                    className={`text-xs font-semibold uppercase tracking-wider ${
+                      isDark ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Popular Hashtags
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {popularHashtags.map((ht) => (
+                    <button
+                      key={ht.id}
+                      onClick={() => setSearchQuery(`#${ht.tag}`)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                        isDark
+                          ? "bg-white/[0.06] text-gray-300 hover:bg-white/[0.12] border border-white/[0.08]"
+                          : "bg-black/[0.04] text-gray-700 hover:bg-black/[0.08] border border-black/[0.06]"
+                      }`}
+                    >
+                      #{ht.tag}
+                      <span
+                        className={`ml-1.5 ${
+                          isDark ? "text-gray-600" : "text-gray-400"
+                        }`}
+                      >
+                        {ht.reelCount}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trending Reels */}
+            <div className="flex items-center gap-2 mb-4">
+              <Flame
+                className={`h-4 w-4 ${
+                  isDark ? "text-orange-400" : "text-orange-500"
+                }`}
+              />
+              <span
+                className={`text-xs font-semibold uppercase tracking-wider ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                Trending Reels
+              </span>
+            </div>
+
+            {loadingTrending ? (
+              <div className="flex justify-center py-8">
+                <Loader2
+                  className={`h-6 w-6 animate-spin ${
+                    isDark ? "text-gray-600" : "text-gray-300"
                   }`}
                 />
-                <span
-                  className={`text-xs font-semibold uppercase tracking-wider ${
-                    isDark ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Discover
-                </span>
               </div>
-
+            ) : trendingReels.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {trendingReels.map((reel) => (
+                  <TrendingReelCard key={reel.id} reel={reel} />
+                ))}
+              </div>
+            ) : (
               <div
                 className={`rounded-2xl border p-6 text-center ${
                   isDark
@@ -151,7 +301,7 @@ export default function ExplorePage() {
                     : "border-black/[0.06] bg-black/[0.02]"
                 }`}
               >
-                <Search
+                <TrendingUp
                   className={`h-10 w-10 mx-auto mb-3 ${
                     isDark ? "text-gray-700" : "text-gray-300"
                   }`}
@@ -161,17 +311,17 @@ export default function ExplorePage() {
                     isDark ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Find people to follow
+                  No trending reels yet
                 </p>
                 <p
                   className={`text-xs ${
                     isDark ? "text-gray-600" : "text-gray-400"
                   }`}
                 >
-                  Search by name or username to connect with friends
+                  Upload reels to see them here
                 </p>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

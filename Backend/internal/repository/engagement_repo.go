@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/gulshan/tars-social/internal/models"
 )
 
 // EngagementRepo handles likes, comments, saves, and views.
@@ -199,26 +201,41 @@ func (r *EngagementRepo) DeleteComment(ctx context.Context, commentID, userID uu
 	return err
 }
 
-// GetComments returns comments for a reel.
-func (r *EngagementRepo) GetComments(ctx context.Context, reelID uuid.UUID, limit, offset int) ([]uuid.UUID, error) {
+// GetComments returns comments for a reel, joined with user profile info.
+func (r *EngagementRepo) GetComments(ctx context.Context, reelID uuid.UUID, limit, offset int) ([]models.CommentWithUser, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id FROM reel_comments WHERE reel_id = $1 AND parent_id IS NULL
-		ORDER BY created_at DESC LIMIT $2 OFFSET $3
+		SELECT c.id, c.reel_id, c.user_id, c.parent_id, c.content, c.like_count, c.is_deleted, c.created_at,
+		       u.id, u.clerk_id, u.username, u.display_name, u.avatar_url, u.is_verified
+		FROM reel_comments c
+		JOIN user_profiles u ON u.id = c.user_id
+		WHERE c.reel_id = $1 AND c.parent_id IS NULL AND c.is_deleted = FALSE
+		ORDER BY c.created_at DESC LIMIT $2 OFFSET $3
 	`, reelID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var ids []uuid.UUID
+	var comments []models.CommentWithUser
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var c models.CommentWithUser
+		var parentID *uuid.UUID
+		var avatarURL *string
+		var createdAt time.Time
+		if err := rows.Scan(
+			&c.ID, &c.ReelID, &c.UserID, &parentID, &c.Content, &c.LikeCount, &c.IsDeleted, &createdAt,
+			&c.User.ID, &c.User.ClerkID, &c.User.Username, &c.User.DisplayName, &avatarURL, &c.User.IsVerified,
+		); err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		c.ParentID = parentID
+		c.CreatedAt = createdAt
+		if avatarURL != nil {
+			c.User.AvatarURL = avatarURL
+		}
+		comments = append(comments, c)
 	}
-	return ids, rows.Err()
+	return comments, rows.Err()
 }
 
 // ---- VIEWS ----

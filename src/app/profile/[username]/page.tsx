@@ -7,10 +7,10 @@ import { profileApi } from "@/lib/api";
 import type { ProfileResponse } from "@/lib/api";
 import FollowButton from "@/components/social/FollowButton";
 import FollowersList from "@/components/social/FollowersList";
+import ReelsGrid from "@/components/reels/ReelsGrid";
 import BottomNav from "@/components/navigation/BottomNav";
 import {
   ArrowLeft,
-  Film,
   Bookmark,
   Grid3X3,
   ExternalLink,
@@ -316,22 +316,7 @@ export default function UserProfilePage({
         </div>
 
         {/* Content */}
-        <div className="p-2">
-          <div className="flex flex-col items-center justify-center py-16">
-            <Film
-              className={`h-16 w-16 mb-4 ${
-                isDark ? "text-gray-800" : "text-gray-200"
-              }`}
-            />
-            <p
-              className={`text-sm font-medium ${
-                isDark ? "text-gray-600" : "text-gray-400"
-              }`}
-            >
-              No reels yet
-            </p>
-          </div>
-        </div>
+        <ReelsGrid userId={profile.id} activeTab={activeTab} isDark={isDark} />
       </div>
 
       {showList && (

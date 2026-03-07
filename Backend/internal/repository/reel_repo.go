@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/gulshan/tars-social/internal/models"
@@ -105,8 +106,16 @@ func (r *ReelRepo) GetFeed(ctx context.Context, userID uuid.UUID, cursor *string
 	var rows *sql.Rows
 	var err error
 
-	// Simple feed: reels from followed users + trending, scored by recency and engagement
-	query := `
+	// Parse cursor as integer offset (ranked feed can't use ID-based cursors)
+	offset := 0
+	if cursor != nil {
+		if parsed, parseErr := strconv.Atoi(*cursor); parseErr == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+
+	// Feed: reels from followed users + trending, scored by recency and engagement
+	rows, err = r.db.QueryContext(ctx, `
 		SELECT r.id, r.creator_id, r.video_url, r.thumbnail_url, r.caption, r.audio_id,
 		       r.duration_ms, r.width, r.height, r.is_published, r.is_instagram, r.ig_media_id,
 		       r.view_count, r.like_count, r.comment_count, r.share_count, r.save_count,
@@ -119,16 +128,8 @@ func (r *ReelRepo) GetFeed(ctx context.Context, userID uuid.UUID, cursor *string
 			(LEAST(r.like_count * 2 + r.comment_count * 3 + r.share_count * 5, 10000) / 10000.0 * 0.25) +
 			(1.0 / GREATEST(EXTRACT(EPOCH FROM NOW() - r.created_at) / 3600, 1) * 0.10)
 			DESC
-		LIMIT $2
-	`
-
-	if cursor != nil {
-		// For simplicity, use offset-style cursor for the ranked feed
-		// (a proper implementation would use pre-computed feeds in Redis)
-		rows, err = r.db.QueryContext(ctx, query, userID, limit)
-	} else {
-		rows, err = r.db.QueryContext(ctx, query, userID, limit)
-	}
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +138,9 @@ func (r *ReelRepo) GetFeed(ctx context.Context, userID uuid.UUID, cursor *string
 	return scanReels(rows)
 }
 
-// GetTrending returns trending reels in the last 48 hours.
+// GetTrending returns trending reels (48h window first, falls back to all-time).
 func (r *ReelRepo) GetTrending(ctx context.Context, limit int) ([]models.Reel, error) {
+	// Try last 48 hours first
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, creator_id, video_url, thumbnail_url, caption, audio_id, duration_ms,
 		       width, height, is_published, is_instagram, ig_media_id, view_count,
@@ -151,6 +153,52 @@ func (r *ReelRepo) GetTrending(ctx context.Context, limit int) ([]models.Reel, e
 		         GREATEST(EXTRACT(EPOCH FROM NOW() - created_at) / 3600, 1) DESC
 		LIMIT $1
 	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	reels, err := scanReels(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fallback to all-time if no recent trending reels
+	if len(reels) == 0 {
+		rows2, err2 := r.db.QueryContext(ctx, `
+			SELECT id, creator_id, video_url, thumbnail_url, caption, audio_id, duration_ms,
+			       width, height, is_published, is_instagram, ig_media_id, view_count,
+			       like_count, comment_count, share_count, save_count, hashtags, status,
+			       created_at, updated_at
+			FROM reels
+			WHERE status = 'ready' AND is_published = TRUE
+			ORDER BY (like_count * 2 + comment_count * 3 + share_count * 5) DESC,
+			         created_at DESC
+			LIMIT $1
+		`, limit)
+		if err2 != nil {
+			return nil, err2
+		}
+		defer rows2.Close()
+		return scanReels(rows2)
+	}
+
+	return reels, nil
+}
+
+// SearchByHashtag returns reels matching a given hashtag.
+func (r *ReelRepo) SearchByHashtag(ctx context.Context, tag string, limit int) ([]models.Reel, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, creator_id, video_url, thumbnail_url, caption, audio_id, duration_ms,
+		       width, height, is_published, is_instagram, ig_media_id, view_count,
+		       like_count, comment_count, share_count, save_count, hashtags, status,
+		       created_at, updated_at
+		FROM reels
+		WHERE status = 'ready' AND is_published = TRUE
+		  AND hashtags @> ARRAY[$1]::TEXT[]
+		ORDER BY (like_count * 2 + comment_count * 3 + share_count * 5) DESC
+		LIMIT $2
+	`, tag, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -176,3 +224,84 @@ func scanReels(rows *sql.Rows) ([]models.Reel, error) {
 	}
 	return reels, rows.Err()
 }
+
+// UpsertHashtags inserts or increments hashtags in the hashtags table.
+func (r *ReelRepo) UpsertHashtags(ctx context.Context, tags []string) error {
+	for _, tag := range tags {
+		if tag == "" {
+			continue
+		}
+		_, err := r.db.ExecContext(ctx, `
+			INSERT INTO hashtags (tag, reel_count) VALUES ($1, 1)
+			ON CONFLICT (tag) DO UPDATE SET reel_count = hashtags.reel_count + 1
+		`, tag)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Hashtag represents a popular hashtag.
+type Hashtag struct {
+	ID        uuid.UUID `json:"id"`
+	Tag       string    `json:"tag"`
+	ReelCount int64     `json:"reelCount"`
+}
+
+// GetPopularHashtags returns the most popular hashtags by reel count.
+func (r *ReelRepo) GetPopularHashtags(ctx context.Context, limit int) ([]Hashtag, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, tag, reel_count FROM hashtags
+		WHERE reel_count > 0
+		ORDER BY reel_count DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hashtags []Hashtag
+	for rows.Next() {
+		var h Hashtag
+		if err := rows.Scan(&h.ID, &h.Tag, &h.ReelCount); err != nil {
+			return nil, err
+		}
+		hashtags = append(hashtags, h)
+	}
+	return hashtags, rows.Err()
+}
+
+// IncrementShareCount atomically increments the share_count on a reel.
+func (r *ReelRepo) IncrementShareCount(ctx context.Context, reelID uuid.UUID) (bool, error) {
+	result, err := r.db.ExecContext(ctx, `UPDATE reels SET share_count = share_count + 1 WHERE id = $1`, reelID)
+	if err != nil {
+		return false, err
+	}
+	rows, _ := result.RowsAffected()
+	return rows > 0, nil
+}
+
+// GetByIGMediaID finds a reel by its Instagram media ID (to prevent duplicate imports).
+func (r *ReelRepo) GetByIGMediaID(ctx context.Context, igMediaID string) (*models.Reel, error) {
+	var reel models.Reel
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, creator_id, video_url, thumbnail_url, caption, audio_id,
+		       duration_ms, width, height, is_published, is_instagram, ig_media_id,
+		       view_count, like_count, comment_count, share_count, save_count,
+		       hashtags, status, created_at, updated_at
+		FROM reels WHERE ig_media_id = $1
+	`, igMediaID).Scan(
+		&reel.ID, &reel.CreatorID, &reel.VideoURL, &reel.ThumbnailURL,
+		&reel.Caption, &reel.AudioID, &reel.DurationMs, &reel.Width, &reel.Height,
+		&reel.IsPublished, &reel.IsInstagram, &reel.IGMediaID,
+		&reel.ViewCount, &reel.LikeCount, &reel.CommentCount, &reel.ShareCount, &reel.SaveCount,
+		pq.Array(&reel.Hashtags), &reel.Status, &reel.CreatedAt, &reel.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &reel, nil
+}
+

@@ -6,11 +6,12 @@ import { useTheme } from "@/context/ThemeContext";
 import { profileApi } from "@/lib/api";
 import type { UserProfile } from "@/lib/api";
 import FollowersList from "@/components/social/FollowersList";
+import ReelsGrid from "@/components/reels/ReelsGrid";
 import BottomNav from "@/components/navigation/BottomNav";
+import Link from "next/link";
 import {
   Settings,
   Edit3,
-  Film,
   Bookmark,
   Grid3X3,
   ExternalLink,
@@ -128,7 +129,8 @@ export default function ProfilePage() {
                 <Moon className="h-5 w-5" />
               )}
             </button>
-            <button
+            <Link
+              href="/settings/instagram"
               className={`p-2 rounded-xl transition-colors cursor-pointer ${
                 isDark
                   ? "hover:bg-white/10 text-gray-400"
@@ -136,7 +138,7 @@ export default function ProfilePage() {
               }`}
             >
               <Settings className="h-5 w-5" />
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -306,25 +308,8 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Content grid (placeholder) */}
-        <div className="p-2">
-          <div className="flex flex-col items-center justify-center py-16">
-            <Film
-              className={`h-16 w-16 mb-4 ${
-                isDark ? "text-gray-800" : "text-gray-200"
-              }`}
-            />
-            <p
-              className={`text-sm font-medium ${
-                isDark ? "text-gray-600" : "text-gray-400"
-              }`}
-            >
-              {activeTab === "reels"
-                ? "No reels yet — create your first!"
-                : "No saved reels yet"}
-            </p>
-          </div>
-        </div>
+        {/* Content grid */}
+        <ReelsGrid userId={profile?.id} activeTab={activeTab} isDark={isDark} />
       </div>
 
       {/* Followers/Following modal */}

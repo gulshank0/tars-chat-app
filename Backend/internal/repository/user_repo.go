@@ -190,3 +190,36 @@ func (r *UserRepo) SearchByUsername(ctx context.Context, query string, limit int
 	}
 	return users, rows.Err()
 }
+
+// SaveInstagramToken stores the IG access token and user ID for a user.
+func (r *UserRepo) SaveInstagramToken(ctx context.Context, userID uuid.UUID, igUserID, accessToken string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE user_profiles
+		SET instagram_id = $2, ig_access_token = $3, updated_at = NOW()
+		WHERE id = $1
+	`, userID, igUserID, accessToken)
+	return err
+}
+
+// ClearInstagramToken removes the stored IG token and ID.
+func (r *UserRepo) ClearInstagramToken(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE user_profiles
+		SET instagram_id = NULL, ig_access_token = NULL, updated_at = NOW()
+		WHERE id = $1
+	`, userID)
+	return err
+}
+
+// GetInstagramToken returns the stored IG access token for internal use.
+func (r *UserRepo) GetInstagramToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	var token sql.NullString
+	err := r.db.QueryRowContext(ctx, `
+		SELECT ig_access_token FROM user_profiles WHERE id = $1
+	`, userID).Scan(&token)
+	if err != nil {
+		return "", err
+	}
+	return token.String, nil
+}
+
