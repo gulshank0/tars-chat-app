@@ -1,0 +1,25 @@
+# Dependencies & build artifacts
+.env
+.env.*
+uploads/
+*.exe
+*.test
+*.out
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
