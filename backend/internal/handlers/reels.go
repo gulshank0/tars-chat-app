@@ -14,10 +14,10 @@ import (
 
 // ReelsHandler handles reel endpoints.
 type ReelsHandler struct {
-	reelRepo       *repository.ReelRepo
-	userRepo       *repository.UserRepo
-	engagementRepo *repository.EngagementRepo
-	s3Client       *storage.S3Client
+	reelRepo         *repository.ReelRepo
+	userRepo         *repository.UserRepo
+	engagementRepo   *repository.EngagementRepo
+	cloudinaryClient *storage.CloudinaryClient
 }
 
 // NewReelsHandler creates a new ReelsHandler.
@@ -25,17 +25,19 @@ func NewReelsHandler(
 	reelRepo *repository.ReelRepo,
 	userRepo *repository.UserRepo,
 	engagementRepo *repository.EngagementRepo,
-	s3Client *storage.S3Client,
+	cloudinaryClient *storage.CloudinaryClient,
 ) *ReelsHandler {
 	return &ReelsHandler{
-		reelRepo:       reelRepo,
-		userRepo:       userRepo,
-		engagementRepo: engagementRepo,
-		s3Client:       s3Client,
+		reelRepo:         reelRepo,
+		userRepo:         userRepo,
+		engagementRepo:   engagementRepo,
+		cloudinaryClient: cloudinaryClient,
 	}
 }
 
-// GetUploadURL generates a presigned S3 URL for direct video upload.
+// GetUploadURL returns info for uploading a video.
+// With Cloudinary, we use the backend-proxy approach (frontend sends file via multipart to /api/v1/upload/video).
+// This endpoint returns a reelId and key for reference.
 func (h *ReelsHandler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 	clerkID, ok := middleware.GetClerkUserID(r.Context())
 	if !ok {
@@ -52,20 +54,27 @@ func (h *ReelsHandler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 	reelID := uuid.New().String()
 	key := storage.MediaKey(user.ID.String(), reelID, "original.mp4")
 
-	uploadURL, err := h.s3Client.GenerateUploadURL(r.Context(), key, "video/mp4")
-	if err != nil {
-		jsonError(w, "failed to generate upload URL", http.StatusInternalServerError)
-		return
+	// With Cloudinary, direct presigned uploads are not used.
+	// The frontend should use POST /api/v1/upload/video instead.
+	// We still return reelId and key for compatibility.
+	response := map[string]string{
+		"reelId": reelID,
+		"key":    key,
 	}
 
-	jsonResponse(w, map[string]string{
-		"uploadUrl": uploadURL,
-		"reelId":    reelID,
-		"key":       key,
-	}, http.StatusOK)
+	// If Cloudinary is configured, provide a hint to use the upload endpoint
+	if h.cloudinaryClient != nil {
+		response["uploadMethod"] = "POST /api/v1/upload/video"
+		response["message"] = "Use multipart upload to /api/v1/upload/video instead of presigned URLs"
+	} else {
+		response["uploadMethod"] = "POST /api/v1/upload/video"
+		response["message"] = "Use multipart upload to /api/v1/upload/video (local storage)"
+	}
+
+	jsonResponse(w, response, http.StatusOK)
 }
 
-// CreateReel creates a reel record after the video has been uploaded to S3.
+// CreateReel creates a reel record after the video has been uploaded.
 func (h *ReelsHandler) CreateReel(w http.ResponseWriter, r *http.Request) {
 	clerkID, ok := middleware.GetClerkUserID(r.Context())
 	if !ok {
@@ -181,9 +190,11 @@ func (h *ReelsHandler) DeleteReel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean up S3 objects
-	key := storage.MediaKey(user.ID.String(), reelID.String(), "original.mp4")
-	_ = h.s3Client.DeleteObject(r.Context(), key)
+	// Clean up Cloudinary object
+	if h.cloudinaryClient != nil {
+		key := storage.MediaKey(user.ID.String(), reelID.String(), "original.mp4")
+		_ = h.cloudinaryClient.DeleteObject(r.Context(), key)
+	}
 
 	jsonResponse(w, map[string]string{"status": "deleted"}, http.StatusOK)
 }
