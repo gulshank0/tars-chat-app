@@ -122,7 +122,7 @@ func main() {
 	rateLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["global"])
 	uploadLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["upload"])
 	followLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["follow"])
-	corsMiddleware := middleware.CORS([]string{"http://localhost:3000", "http://localhost:3001", "*"})
+	corsMiddleware := middleware.CORS([]string{"http://localhost:3000", "http://localhost:3001","https://tars-chat-app-eta.vercel.app", "*"})
 
 	// ---- Router ----
 	mux := http.NewServeMux()
