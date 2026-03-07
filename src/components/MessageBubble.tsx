@@ -5,7 +5,8 @@ import { api } from "../../convex/_generated/api";
 import { Id, Doc } from "../../convex/_generated/dataModel";
 import { formatMessageTime } from "@/lib/formatTime";
 import { useState } from "react";
-import { Trash2, Smile } from "lucide-react";
+import { Trash2, Smile, Play } from "lucide-react";
+import Link from "next/link";
 
 interface MessageWithSender {
   _id: Id<"messages">;
@@ -15,6 +16,15 @@ interface MessageWithSender {
   content: string;
   isDeleted: boolean;
   reactions?: { emoji: string; userId: Id<"users"> }[];
+  messageType?: "text" | "reel_share" | "image";
+  sharedReelId?: string;
+  sharedReelPreview?: {
+    thumbnailUrl: string;
+    caption: string;
+    creatorName: string;
+    creatorAvatar?: string;
+    duration: number;
+  };
   sender: Doc<"users"> | null;
 }
 
@@ -29,7 +39,10 @@ interface MessageBubbleProps {
 const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢"];
 
 // Helper function to get message bubble styling
-function getMessageBubbleStyle(isDeleted: boolean, isOwnMessage: boolean): string {
+function getMessageBubbleStyle(
+  isDeleted: boolean,
+  isOwnMessage: boolean,
+): string {
   if (isDeleted) {
     return "bg-gray-200 dark:bg-gray-900 text-gray-500 dark:text-gray-400 italic";
   }
@@ -39,7 +52,12 @@ function getMessageBubbleStyle(isDeleted: boolean, isOwnMessage: boolean): strin
   return "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm";
 }
 
-export function MessageBubble({ message, isOwnMessage, currentUserId, showSenderName }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  isOwnMessage,
+  currentUserId,
+  showSenderName,
+}: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -61,16 +79,17 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
   };
 
   // Group reactions by emoji
-  const groupedReactions = message.reactions?.reduce(
-    (acc, reaction) => {
-      if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = [];
-      }
-      acc[reaction.emoji].push(reaction.userId);
-      return acc;
-    },
-    {} as Record<string, Id<"users">[]>
-  ) || {};
+  const groupedReactions =
+    message.reactions?.reduce(
+      (acc, reaction) => {
+        if (!acc[reaction.emoji]) {
+          acc[reaction.emoji] = [];
+        }
+        acc[reaction.emoji].push(reaction.userId);
+        return acc;
+      },
+      {} as Record<string, Id<"users">[]>,
+    ) || {};
 
   return (
     <div
@@ -81,19 +100,63 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
         setShowEmojiPicker(false);
       }}
     >
-      <div className={`relative max-w-[75%] ${isOwnMessage ? "order-2" : "order-1"}`}>
+      <div
+        className={`relative max-w-[75%] ${isOwnMessage ? "order-2" : "order-1"}`}
+      >
         {/* Message bubble */}
         <div
           className={`rounded-2xl px-4 py-2 ${getMessageBubbleStyle(message.isDeleted, isOwnMessage)}`}
         >
           {/* Sender name in group chats (for other users' messages) */}
           {showSenderName && !isOwnMessage && message.sender && (
-            <p className="mb-0.5 text-xs font-semibold text-blue-600">{message.sender.name}</p>
+            <p className="mb-0.5 text-xs font-semibold text-blue-600">
+              {message.sender.name}
+            </p>
           )}
           {message.isDeleted ? (
             <p className="text-sm">This message was deleted</p>
+          ) : message.messageType === "reel_share" &&
+            message.sharedReelPreview ? (
+            <Link href="/reels/player" className="block">
+              <div className="relative w-48 aspect-[9/14] rounded-xl overflow-hidden mb-1">
+                {message.sharedReelPreview.thumbnailUrl ? (
+                  <img
+                    src={message.sharedReelPreview.thumbnailUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                    <Play className="h-8 w-8 text-white/60" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
+                    <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+                  </div>
+                </div>
+                <div className="absolute bottom-2 left-2 right-2">
+                  <p className="text-white text-xs font-medium truncate">
+                    {message.sharedReelPreview.creatorName}
+                  </p>
+                  {message.sharedReelPreview.caption && (
+                    <p className="text-white/70 text-[10px] line-clamp-1">
+                      {message.sharedReelPreview.caption}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p
+                className={`text-xs ${isOwnMessage ? "text-blue-100" : "text-gray-500 dark:text-gray-400"}`}
+              >
+                Shared a reel
+              </p>
+            </Link>
           ) : (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
           )}
         </div>
 
@@ -126,7 +189,9 @@ export function MessageBubble({ message, isOwnMessage, currentUserId, showSender
                   }`}
                 >
                   <span>{emoji}</span>
-                  <span className="text-gray-600 dark:text-gray-300">{userIds.length}</span>
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {userIds.length}
+                  </span>
                 </button>
               );
             })}
