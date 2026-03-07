@@ -9,11 +9,21 @@ import { notificationsApi } from "@/lib/api";
 import { MessageSquare, Film, Compass, Bell, User } from "lucide-react";
 
 const navItems = [
-  { href: "/chat", icon: MessageSquare, label: "Chat" },
-  { href: "/reels", icon: Film, label: "Reels" },
-  { href: "/explore", icon: Compass, label: "Explore" },
-  { href: "/notifications", icon: Bell, label: "Activity" },
-  { href: "/profile", icon: User, label: "Profile" },
+  { href: "/chat", icon: MessageSquare, label: "Chat", activePrefix: "/chat" },
+  { href: "/reels/player", icon: Film, label: "Reels", activePrefix: "/reels" },
+  {
+    href: "/explore",
+    icon: Compass,
+    label: "Explore",
+    activePrefix: "/explore",
+  },
+  {
+    href: "/notifications",
+    icon: Bell,
+    label: "Activity",
+    activePrefix: "/notifications",
+  },
+  { href: "/profile", icon: User, label: "Profile", activePrefix: "/profile" },
 ];
 
 export default function BottomNav() {
@@ -59,7 +69,9 @@ export default function BottomNav() {
       <div className="flex items-center justify-around max-w-lg mx-auto h-16">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || pathname?.startsWith(item.href + "/");
+            pathname === item.href ||
+            pathname?.startsWith(item.activePrefix + "/") ||
+            pathname === item.activePrefix;
           const showBadge = item.href === "/notifications" && unreadCount > 0;
           return (
             <Link

@@ -267,6 +267,13 @@ export const reelsApi = {
       { method: "POST", body: JSON.stringify({ watchDuration, completed }) },
       token,
     ),
+
+  delete: (id: string, token: string) =>
+    apiRequest<{ status: string }>(
+      `/api/v1/reels/${id}`,
+      { method: "DELETE" },
+      token,
+    ),
 };
 
 // ---- Notifications API ----
@@ -296,6 +303,13 @@ export const notificationsApi = {
 export const instagramApi = {
   getAuthUrl: (token: string) =>
     apiRequest<{ authUrl: string }>("/api/v1/instagram/auth-url", {}, token),
+
+  handleCallback: (code: string, token: string) =>
+    apiRequest<{ connected: boolean; instagramId: string }>(
+      `/api/v1/instagram/callback?code=${encodeURIComponent(code)}`,
+      { method: "POST" },
+      token,
+    ),
 
   disconnect: (token: string) =>
     apiRequest<{ connected: boolean }>(

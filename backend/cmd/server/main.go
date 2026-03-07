@@ -21,6 +21,7 @@ import (
 	"github.com/gulshan/tars-social/internal/handlers"
 	"github.com/gulshan/tars-social/internal/middleware"
 	"github.com/gulshan/tars-social/internal/repository"
+	"github.com/gulshan/tars-social/pkg/cache"
 	"github.com/gulshan/tars-social/pkg/storage"
 )
 
@@ -79,6 +80,25 @@ func main() {
 	}
 	log.Println("✅ Migrations applied")
 
+	// ---- Redis ----
+	var rdb *cache.RedisClient
+	var viewBuffer *cache.ViewBuffer
+	if cfg.RedisURL != "" {
+		rdb, err = cache.NewRedisClient(cfg.RedisURL)
+		if err != nil {
+			log.Printf("⚠️  Redis not available: %v (running without cache)", err)
+		} else {
+			log.Println("✅ Connected to Redis")
+
+			// Start view buffer (flushes to PostgreSQL every 30s)
+			viewBuffer = cache.NewViewBuffer(rdb, db, 30*time.Second)
+			viewBuffer.Start()
+			log.Println("✅ View buffer started")
+		}
+	} else {
+		log.Println("ℹ️  Redis not configured — running without cache")
+	}
+
 	// ---- Cloudinary Storage ----
 	var cloudinaryClient *storage.CloudinaryClient
 	if cfg.CloudinaryCloudName != "" {
@@ -102,6 +122,18 @@ func main() {
 	notifRepo := repository.NewNotificationRepo(db)
 	reportRepo := repository.NewReportRepo(db)
 
+	// Inject Redis into repos
+	if rdb != nil {
+		userRepo.SetRedis(rdb)
+		reelRepo.SetRedis(rdb)
+		engagementRepo.SetRedis(rdb)
+		notifRepo.SetRedis(rdb)
+		if viewBuffer != nil {
+			engagementRepo.SetViewBuffer(viewBuffer)
+		}
+		log.Println("✅ Redis injected into all repositories")
+	}
+
 	// ---- Handlers ----
 	profileH := handlers.NewProfileHandler(userRepo, socialRepo)
 	socialH := handlers.NewSocialHandler(socialRepo, userRepo, notifRepo)
@@ -118,23 +150,41 @@ func main() {
 		"/api/v1/profile/sync",
 		"/uploads/",
 	})
-	rateLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["global"])
-	uploadLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["upload"])
-	followLimiter := middleware.NewRateLimiter(middleware.DefaultLimits["follow"])
-	corsMiddleware := middleware.CORS([]string{"http://localhost:3000", "http://localhost:3001", "*"})
+	rateLimiter := middleware.NewRateLimiterWithName("global", middleware.DefaultLimits["global"])
+	uploadLimiter := middleware.NewRateLimiterWithName("upload", middleware.DefaultLimits["upload"])
+	followLimiter := middleware.NewRateLimiterWithName("follow", middleware.DefaultLimits["follow"])
+	corsMiddleware := middleware.CORS([]string{"http://localhost:3000", "http://localhost:3001","https://tars-chat-app-eta.vercel.app", "*"})
+
+	// Inject Redis into rate limiters for distributed limiting
+	if rdb != nil {
+		rateLimiter.SetRedis(rdb)
+		uploadLimiter.SetRedis(rdb)
+		followLimiter.SetRedis(rdb)
+		log.Println("✅ Redis-backed rate limiting enabled")
+	}
 
 	// ---- Router ----
 	mux := http.NewServeMux()
 
-	// Health check (no auth) — enhanced with DB ping and uptime
+	// Health check (no auth) — enhanced with DB + Redis ping and uptime
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		dbStatus := "ok"
 		if err := db.Ping(); err != nil {
 			dbStatus = "error: " + err.Error()
 		}
+
+		redisStatus := "not configured"
+		if rdb != nil {
+			if err := rdb.Ping(r.Context()); err != nil {
+				redisStatus = "error: " + err.Error()
+			} else {
+				redisStatus = "ok"
+			}
+		}
+
 		uptime := time.Since(startTime).Round(time.Second).String()
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","service":"tars-social","database":"%s","uptime":"%s"}`, dbStatus, uptime)
+		fmt.Fprintf(w, `{"status":"ok","service":"tars-social","database":"%s","redis":"%s","uptime":"%s"}`, dbStatus, redisStatus, uptime)
 	})
 
 	// Profile sync (internal — from webhook)
@@ -243,6 +293,19 @@ func main() {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
 		log.Println("🛑 Shutting down gracefully...")
+
+		// Stop view buffer (flushes remaining counts)
+		if viewBuffer != nil {
+			viewBuffer.Stop()
+			log.Println("📊 View buffer stopped")
+		}
+
+		// Close Redis
+		if rdb != nil {
+			rdb.Close()
+			log.Println("🔴 Redis connection closed")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {

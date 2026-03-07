@@ -7,6 +7,7 @@ import { profileApi } from "@/lib/api";
 import type { UserProfile } from "@/lib/api";
 import FollowersList from "@/components/social/FollowersList";
 import ReelsGrid from "@/components/reels/ReelsGrid";
+import EditProfileModal from "@/components/EditProfileModal";
 import BottomNav from "@/components/navigation/BottomNav";
 import Link from "next/link";
 import {
@@ -27,6 +28,7 @@ export default function ProfilePage() {
     null,
   );
   const [activeTab, setActiveTab] = useState<"reels" | "saved">("reels");
+  const [editOpen, setEditOpen] = useState(false);
   const { getToken } = useAuth();
   const { user } = useUser();
   const { resolvedTheme, setTheme } = useTheme();
@@ -235,13 +237,21 @@ export default function ProfilePage() {
                 <BadgeCheck className="h-4 w-4 text-blue-500" />
               )}
             </div>
-            {profile?.bio && (
+            {profile?.bio ? (
               <p
-                className={`text-sm mt-1 ${
+                className={`text-sm mt-1 leading-relaxed whitespace-pre-line ${
                   isDark ? "text-gray-400" : "text-gray-600"
                 }`}
               >
                 {profile.bio}
+              </p>
+            ) : (
+              <p
+                className={`text-sm mt-1 italic ${
+                  isDark ? "text-gray-700" : "text-gray-300"
+                }`}
+              >
+                No bio yet — tap Edit Profile to add one
               </p>
             )}
             {profile?.website && (
@@ -259,6 +269,7 @@ export default function ProfilePage() {
 
           {/* Edit button */}
           <button
+            onClick={() => setEditOpen(true)}
             className={`w-full mt-4 py-2 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
               isDark
                 ? "border-white/15 bg-white/5 text-white hover:bg-white/10"
@@ -309,7 +320,13 @@ export default function ProfilePage() {
         </div>
 
         {/* Content grid */}
-        <ReelsGrid userId={profile?.id} activeTab={activeTab} isDark={isDark} />
+        <ReelsGrid
+          userId={profile?.id}
+          activeTab={activeTab}
+          isDark={isDark}
+          currentUserId={profile?.id}
+          onReelDeleted={fetchProfile}
+        />
       </div>
 
       {/* Followers/Following modal */}
@@ -319,6 +336,16 @@ export default function ProfilePage() {
           type={showList}
           isOpen={true}
           onClose={() => setShowList(null)}
+        />
+      )}
+
+      {/* Edit Profile modal */}
+      {profile && (
+        <EditProfileModal
+          profile={profile}
+          isOpen={editOpen}
+          onClose={() => setEditOpen(false)}
+          onUpdated={(updated) => setProfile(updated)}
         />
       )}
 

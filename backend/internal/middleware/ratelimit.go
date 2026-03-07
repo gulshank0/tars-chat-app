@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gulshan/tars-social/pkg/cache"
 )
 
 // RateLimitConfig defines the rate limit for a bucket.
@@ -12,11 +15,15 @@ type RateLimitConfig struct {
 	Max    int
 }
 
-// RateLimiter is an in-memory token-bucket rate limiter per user.
+// RateLimiter supports Redis-backed and in-memory rate limiting.
+// When Redis is available, uses INCR+EXPIRE for distributed limiting.
+// Falls back to in-memory when Redis is unavailable.
 type RateLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*bucket
 	config  RateLimitConfig
+	rdb     *cache.RedisClient
+	name    string // bucket name for Redis key prefix
 }
 
 type bucket struct {
@@ -38,14 +45,44 @@ func NewRateLimiter(cfg RateLimitConfig) *RateLimiter {
 	rl := &RateLimiter{
 		buckets: make(map[string]*bucket),
 		config:  cfg,
+		name:    "default",
 	}
-	// Cleanup stale buckets every 5 minutes
+	// Cleanup stale in-memory buckets every 5 minutes
 	go rl.cleanup()
 	return rl
 }
 
+// NewRateLimiterWithName creates a named rate limiter (used for Redis key prefix).
+func NewRateLimiterWithName(name string, cfg RateLimitConfig) *RateLimiter {
+	rl := &RateLimiter{
+		buckets: make(map[string]*bucket),
+		config:  cfg,
+		name:    name,
+	}
+	go rl.cleanup()
+	return rl
+}
+
+// SetRedis enables Redis-backed rate limiting.
+func (rl *RateLimiter) SetRedis(rdb *cache.RedisClient) {
+	rl.rdb = rdb
+}
+
 // Allow checks if the given key (e.g., user ID) is within the rate limit.
+// Uses Redis when available, falls back to in-memory.
 func (rl *RateLimiter) Allow(key string) bool {
+	// Try Redis first for distributed rate limiting
+	if rl.rdb != nil {
+		ctx := context.Background()
+		redisKey := "rl:" + rl.name + ":" + key
+		allowed, err := rl.rdb.RateLimitCheck(ctx, redisKey, rl.config.Max, rl.config.Window)
+		if err == nil {
+			return allowed
+		}
+		// Redis error — fall back to in-memory
+	}
+
+	// In-memory fallback
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -83,7 +120,7 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// cleanup removes stale buckets periodically.
+// cleanup removes stale in-memory buckets periodically.
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
