@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -89,6 +90,22 @@ func (s *S3Client) DeleteObject(ctx context.Context, key string) error {
 		Key:    aws.String(key),
 	})
 	return err
+}
+
+// UploadFile streams a file body to S3 and returns the public URL.
+func (s *S3Client) UploadFile(ctx context.Context, key string, body io.Reader, contentType string) (string, error) {
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		Body:        body,
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %w", err)
+	}
+
+	// Return CDN URL or presigned URL
+	return s.GenerateDownloadURL(ctx, key)
 }
 
 // MediaKey returns the S3 key for a media file.

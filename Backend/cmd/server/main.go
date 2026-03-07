@@ -109,7 +109,7 @@ func main() {
 	reelsH := handlers.NewReelsHandler(reelRepo, userRepo, engagementRepo, s3Client)
 	engagementH := handlers.NewEngagementHandler(engagementRepo, userRepo, reelRepo, notifRepo)
 	notifH := handlers.NewNotificationsHandler(notifRepo, userRepo)
-	uploadH := handlers.NewUploadHandler(reelRepo, userRepo, "./uploads")
+	uploadH := handlers.NewUploadHandler(reelRepo, userRepo, "./uploads", s3Client)
 	instagramH := handlers.NewInstagramHandler(userRepo, reelRepo, cfg)
 	reportH := handlers.NewReportHandler(reportRepo, userRepo)
 

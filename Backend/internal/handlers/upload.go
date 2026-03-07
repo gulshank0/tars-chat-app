@@ -12,19 +12,21 @@ import (
 	"github.com/gulshan/tars-social/internal/middleware"
 	"github.com/gulshan/tars-social/internal/models"
 	"github.com/gulshan/tars-social/internal/repository"
+	"github.com/gulshan/tars-social/pkg/storage"
 )
 
-// UploadHandler handles direct file uploads when S3 is not configured.
+// UploadHandler handles direct file uploads — S3 when configured, local fallback otherwise.
 type UploadHandler struct {
-	reelRepo *repository.ReelRepo
-	userRepo *repository.UserRepo
+	reelRepo  *repository.ReelRepo
+	userRepo  *repository.UserRepo
 	uploadDir string
+	s3Client  *storage.S3Client
 }
 
 // NewUploadHandler creates a new UploadHandler.
-func NewUploadHandler(reelRepo *repository.ReelRepo, userRepo *repository.UserRepo, uploadDir string) *UploadHandler {
+func NewUploadHandler(reelRepo *repository.ReelRepo, userRepo *repository.UserRepo, uploadDir string, s3 *storage.S3Client) *UploadHandler {
 	os.MkdirAll(uploadDir, 0755)
-	return &UploadHandler{reelRepo: reelRepo, userRepo: userRepo, uploadDir: uploadDir}
+	return &UploadHandler{reelRepo: reelRepo, userRepo: userRepo, uploadDir: uploadDir, s3Client: s3}
 }
 
 // UploadVideo handles multipart video file upload + reel creation in one step.
@@ -68,21 +70,6 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		ext = ".mp4"
 	}
 	filename := fmt.Sprintf("%s%s", reelID.String(), ext)
-	thumbFilename := fmt.Sprintf("%s_thumb.jpg", reelID.String())
-
-	// Save video file
-	videoPath := filepath.Join(h.uploadDir, filename)
-	dst, err := os.Create(videoPath)
-	if err != nil {
-		jsonError(w, "failed to save video", http.StatusInternalServerError)
-		return
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
-		jsonError(w, "failed to write video", http.StatusInternalServerError)
-		return
-	}
 
 	// Get form fields
 	caption := r.FormValue("caption")
@@ -95,18 +82,45 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create reel record
-	videoURL := fmt.Sprintf("/uploads/%s", filename)
+	var videoURL string
+
+	// Upload to S3 if configured, otherwise save locally
+	if h.s3Client != nil {
+		s3Key := storage.MediaKey(user.ID.String(), reelID.String(), filename)
+		publicURL, err := h.s3Client.UploadFile(r.Context(), s3Key, file, contentType)
+		if err != nil {
+			jsonError(w, "failed to upload to S3", http.StatusInternalServerError)
+			return
+		}
+		videoURL = publicURL
+	} else {
+		// Local fallback
+		videoPath := filepath.Join(h.uploadDir, filename)
+		dst, err := os.Create(videoPath)
+		if err != nil {
+			jsonError(w, "failed to save video", http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, file); err != nil {
+			jsonError(w, "failed to write video", http.StatusInternalServerError)
+			return
+		}
+		videoURL = fmt.Sprintf("/uploads/%s", filename)
+	}
+
+	thumbFilename := fmt.Sprintf("%s_thumb.jpg", reelID.String())
 	thumbnailURL := fmt.Sprintf("/uploads/%s", thumbFilename)
 
 	reel := &models.Reel{
-		CreatorID:  user.ID,
-		VideoURL:   videoURL,
-		Caption:    caption,
-		DurationMs: 0, // Will be determined client-side or by processing
-		Status:     models.ReelStatusReady,
-		IsPublished: true,
-		Hashtags:   cleanHashtags,
+		CreatorID:    user.ID,
+		VideoURL:     videoURL,
+		Caption:      caption,
+		DurationMs:   0,
+		Status:       models.ReelStatusReady,
+		IsPublished:  true,
+		Hashtags:     cleanHashtags,
 		ThumbnailURL: &thumbnailURL,
 	}
 
@@ -115,13 +129,10 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update user's reel count
-	// (simplified — in production, use a trigger or separate counter update)
-
 	jsonResponse(w, reel, http.StatusCreated)
 }
 
-// ServeUploads serves uploaded files.
+// ServeUploads serves uploaded files (local mode only).
 func (h *UploadHandler) ServeUploads(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("filename")
 	if filename == "" {
@@ -148,3 +159,4 @@ func (h *UploadHandler) ServeUploads(w http.ResponseWriter, r *http.Request) {
 	// Enable range requests for video seeking
 	http.ServeFile(w, r, filePath)
 }
+
