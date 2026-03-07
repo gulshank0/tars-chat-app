@@ -79,20 +79,19 @@ func main() {
 	}
 	log.Println("✅ Migrations applied")
 
-	// ---- S3 Storage ----
-	var s3Client *storage.S3Client
-	if cfg.S3AccessKeyID != "" {
-		s3Client, err = storage.NewS3Client(
-			cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket,
-			cfg.S3AccessKeyID, cfg.S3SecretAccessKey, cfg.CDNBaseURL,
+	// ---- Cloudinary Storage ----
+	var cloudinaryClient *storage.CloudinaryClient
+	if cfg.CloudinaryCloudName != "" {
+		cloudinaryClient, err = storage.NewCloudinaryClient(
+			cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret,
 		)
 		if err != nil {
-			log.Printf("⚠️  S3 client not initialized: %v", err)
+			log.Printf("⚠️  Cloudinary client not initialized: %v", err)
 		} else {
-			log.Println("✅ S3 client initialized")
+			log.Println("✅ Cloudinary client initialized")
 		}
 	} else {
-		log.Println("ℹ️  S3 not configured — using local file uploads")
+		log.Println("ℹ️  Cloudinary not configured — using local file uploads")
 	}
 
 	// ---- Repositories ----
@@ -106,10 +105,10 @@ func main() {
 	// ---- Handlers ----
 	profileH := handlers.NewProfileHandler(userRepo, socialRepo)
 	socialH := handlers.NewSocialHandler(socialRepo, userRepo, notifRepo)
-	reelsH := handlers.NewReelsHandler(reelRepo, userRepo, engagementRepo, s3Client)
+	reelsH := handlers.NewReelsHandler(reelRepo, userRepo, engagementRepo, cloudinaryClient)
 	engagementH := handlers.NewEngagementHandler(engagementRepo, userRepo, reelRepo, notifRepo)
 	notifH := handlers.NewNotificationsHandler(notifRepo, userRepo)
-	uploadH := handlers.NewUploadHandler(reelRepo, userRepo, "./uploads", s3Client)
+	uploadH := handlers.NewUploadHandler(reelRepo, userRepo, "./uploads", cloudinaryClient)
 	instagramH := handlers.NewInstagramHandler(userRepo, reelRepo, cfg)
 	reportH := handlers.NewReportHandler(reportRepo, userRepo)
 

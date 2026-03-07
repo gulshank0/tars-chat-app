@@ -15,18 +15,18 @@ import (
 	"github.com/gulshan/tars-social/pkg/storage"
 )
 
-// UploadHandler handles direct file uploads — S3 when configured, local fallback otherwise.
+// UploadHandler handles direct file uploads — Cloudinary when configured, local fallback otherwise.
 type UploadHandler struct {
-	reelRepo  *repository.ReelRepo
-	userRepo  *repository.UserRepo
-	uploadDir string
-	s3Client  *storage.S3Client
+	reelRepo       *repository.ReelRepo
+	userRepo       *repository.UserRepo
+	uploadDir      string
+	cloudinaryClient *storage.CloudinaryClient
 }
 
 // NewUploadHandler creates a new UploadHandler.
-func NewUploadHandler(reelRepo *repository.ReelRepo, userRepo *repository.UserRepo, uploadDir string, s3 *storage.S3Client) *UploadHandler {
+func NewUploadHandler(reelRepo *repository.ReelRepo, userRepo *repository.UserRepo, uploadDir string, cld *storage.CloudinaryClient) *UploadHandler {
 	os.MkdirAll(uploadDir, 0755)
-	return &UploadHandler{reelRepo: reelRepo, userRepo: userRepo, uploadDir: uploadDir, s3Client: s3}
+	return &UploadHandler{reelRepo: reelRepo, userRepo: userRepo, uploadDir: uploadDir, cloudinaryClient: cld}
 }
 
 // UploadVideo handles multipart video file upload + reel creation in one step.
@@ -84,12 +84,12 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 
 	var videoURL string
 
-	// Upload to S3 if configured, otherwise save locally
-	if h.s3Client != nil {
-		s3Key := storage.MediaKey(user.ID.String(), reelID.String(), filename)
-		publicURL, err := h.s3Client.UploadFile(r.Context(), s3Key, file, contentType)
+	// Upload to Cloudinary if configured, otherwise save locally
+	if h.cloudinaryClient != nil {
+		cloudinaryKey := storage.MediaKey(user.ID.String(), reelID.String(), filename)
+		publicURL, err := h.cloudinaryClient.UploadFile(r.Context(), cloudinaryKey, file, contentType)
 		if err != nil {
-			jsonError(w, "failed to upload to S3", http.StatusInternalServerError)
+			jsonError(w, "failed to upload to Cloudinary", http.StatusInternalServerError)
 			return
 		}
 		videoURL = publicURL
@@ -159,4 +159,3 @@ func (h *UploadHandler) ServeUploads(w http.ResponseWriter, r *http.Request) {
 	// Enable range requests for video seeking
 	http.ServeFile(w, r, filePath)
 }
-

@@ -22,13 +22,10 @@ type Config struct {
 	ClerkIssuerURL  string
 	ClerkJWKSURL    string
 
-	// AWS S3 / Cloudflare R2
-	S3Endpoint        string
-	S3Region          string
-	S3Bucket          string
-	S3AccessKeyID     string
-	S3SecretAccessKey  string
-	CDNBaseURL        string
+	// Cloudinary
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
 
 	// Instagram
 	InstagramAppID     string
@@ -52,12 +49,9 @@ func Load() *Config {
 		ClerkIssuerURL: getEnv("CLERK_ISSUER_URL", ""),
 		ClerkJWKSURL:   getEnv("CLERK_JWKS_URL", ""),
 
-		S3Endpoint:       getEnv("S3_ENDPOINT", ""),
-		S3Region:         getEnv("S3_REGION", "us-east-1"),
-		S3Bucket:         getEnv("S3_BUCKET", "tars-media"),
-		S3AccessKeyID:    getEnv("S3_ACCESS_KEY_ID", ""),
-		S3SecretAccessKey: getEnv("S3_SECRET_ACCESS_KEY", ""),
-		CDNBaseURL:       getEnv("CDN_BASE_URL", ""),
+		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 
 		InstagramAppID:       getEnv("INSTAGRAM_APP_ID", ""),
 		InstagramAppSecret:   getEnv("INSTAGRAM_APP_SECRET", ""),
